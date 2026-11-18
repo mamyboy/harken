@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS post_comments (
     text_th     TEXT,
     posted_iso  TEXT,
     likes       INTEGER DEFAULT 0,
-    is_author   INTEGER DEFAULT 0
+    is_author   INTEGER DEFAULT 0,
+    sentiment   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_comments_url ON post_comments(url);
 
@@ -70,4 +71,8 @@ def db():
 def init():
     with db() as conn:
         conn.executescript(SCHEMA)
+        # migrate DBs created before comment sentiment existed
+        cols = {r['name'] for r in conn.execute('PRAGMA table_info(post_comments)')}
+        if 'sentiment' not in cols:
+            conn.execute('ALTER TABLE post_comments ADD COLUMN sentiment TEXT')
     return DB_PATH

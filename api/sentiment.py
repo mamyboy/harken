@@ -14,7 +14,15 @@ def pending(limit=400):
             "WHERE COALESCE(sentiment,'') = '' AND COALESCE(text_raw,'') <> '' LIMIT ?", (limit,))]
 
 
-def _classify(session_id, items):
+def pending_comments(limit=400):
+    """Comment rows still missing a sentiment label."""
+    with db.db() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT id, text_th, text_raw FROM post_comments "
+            "WHERE COALESCE(sentiment,'') = '' AND COALESCE(text_raw,'') <> '' LIMIT ?", (limit,))]
+
+
+def _classify(session_id, items, key='url'):
     payload = [{'i': i, 't': (it.get('text_th') or it.get('text_raw') or '')[:500]}
                for i, it in enumerate(items)]
     prompt = (
@@ -33,15 +41,11 @@ def _classify(session_id, items):
             continue
         if s in LABELS:
             got[i] = s
-    return [(items[i]['url'], s) for i, s in got.items() if i < len(items)]
+    return [(items[i][key], s) for i, s in got.items() if i < len(items)]
 
 
-def run(timeout_chunks=40):
-    """Score pending posts. Returns {pending, scored, failed}."""
-    rows = pending()
-    if not rows:
-        return {'pending': 0, 'scored': 0, 'failed': 0}
-
+def _score(rows, key, update_sql, timeout_chunks=40):
+    """Classify rows in chunks, halving on failure; returns (scored, failed)."""
     t0 = time.time()
     scored = failed = 0
     session = None
@@ -52,11 +56,10 @@ def run(timeout_chunks=40):
         try:
             if session is None:
                 session = llm.new_session('harken-sentiment')
-            got = _classify(session, chunk)
+            got = _classify(session, chunk, key)
             if got:
                 with db.db() as conn:
-                    conn.executemany('UPDATE posts SET sentiment = ? WHERE url = ?',
-                                     [(s, u) for u, s in got])
+                    conn.executemany(update_sql, [(s, k) for k, s in got])
                 scored += len(got)
         except Exception as e:
             if len(chunk) > 1:
@@ -66,5 +69,24 @@ def run(timeout_chunks=40):
             else:
                 failed += 1
                 print('[sentiment] fail %s' % e, flush=True)
-    return {'pending': len(rows), 'scored': scored, 'failed': failed,
-            'seconds': round(time.time() - t0)}
+    return scored, failed, round(time.time() - t0)
+
+
+def run(timeout_chunks=40):
+    """Score pending posts. Returns {pending, scored, failed}."""
+    rows = pending()
+    if not rows:
+        return {'pending': 0, 'scored': 0, 'failed': 0}
+    scored, failed, secs = _score(
+        rows, 'url', 'UPDATE posts SET sentiment = ? WHERE url = ?', timeout_chunks)
+    return {'pending': len(rows), 'scored': scored, 'failed': failed, 'seconds': secs}
+
+
+def run_comments(timeout_chunks=40):
+    """Score pending comments so the table can show comment sentiment direction."""
+    rows = pending_comments()
+    if not rows:
+        return {'pending': 0, 'scored': 0, 'failed': 0}
+    scored, failed, secs = _score(
+        rows, 'id', 'UPDATE post_comments SET sentiment = ? WHERE id = ?', timeout_chunks)
+    return {'pending': len(rows), 'scored': scored, 'failed': failed, 'seconds': secs}

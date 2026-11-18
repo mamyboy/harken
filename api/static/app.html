@@ -115,6 +115,11 @@ a:hover{text-decoration:underline}
   border-top:1px solid rgba(255,255,255,.28); padding-top:12px; text-align:center; position:relative; z-index:1}
 .hero .stats .k{font-size:11px; color:rgba(255,255,255,.86); display:block}
 .hero .stats .v{font-size:19px; font-weight:700; font-variant-numeric:tabular-nums; display:block; margin-top:1px}
+.hero .mood{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:8px;
+  position:relative; z-index:1}
+.hero .mood span{font-size:11.5px; font-weight:600; background:rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.3); border-radius:99px; padding:2px 9px;
+  font-variant-numeric:tabular-nums}
 
 /* ── radar ────────────────────────────────────────────────── */
 .radar-wrap{display:grid; grid-template-columns:minmax(0,436px) minmax(0,1fr); gap:6px 14px; align-items:center}
@@ -245,6 +250,38 @@ tbody tr:last-child td{border-bottom:0}
 .tag.neg{color:var(--neg); background:var(--neg-wash)}
 .tag.neu{color:var(--neu); background:var(--neu-wash)}
 .tag.none{color:var(--muted); background:#F1F4FA}
+.tag.topic{color:var(--violet); background:var(--violet-wash); border-color:#DDCDFF}
+
+/* ── emotion components ───────────────────────────────────── */
+.emo{display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:600;
+  border-radius:99px; padding:2px 7px; border:1px solid transparent; white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.emo.pos{color:var(--pos); background:var(--pos-wash); border-color:#C9EBD5}
+.emo.neu{color:var(--neu); background:var(--neu-wash); border-color:#F6E2BC}
+.emo.neg{color:var(--neg); background:var(--neg-wash); border-color:#FFD2D2}
+.emo.none{color:var(--muted); background:#F1F4FA}
+.emos{display:flex; gap:4px; flex-wrap:wrap; margin-top:4px}
+.metrics{display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--muted);
+  font-variant-numeric:tabular-nums; white-space:nowrap}
+.metrics b{color:var(--ink-2); font-weight:600}
+.cnum{font-size:12.5px; font-weight:600; color:var(--ink-2)}
+.cdir{font-size:11.5px; margin-top:4px; font-weight:600}
+.cdir.pos{color:var(--pos)} .cdir.neu{color:var(--neu)} .cdir.neg{color:var(--neg)}
+.cdir.none{color:var(--muted)}
+.chint{font-size:11px; color:var(--muted-2); margin-top:3px; line-height:1.4}
+.thread{margin-top:10px; border:1px solid var(--line); border-radius:11px; overflow:hidden}
+.thread .th{font-size:11.5px; color:var(--muted); background:#F7FAFF; padding:7px 11px;
+  border-bottom:1px solid var(--line); display:flex; gap:8px; align-items:center}
+.thread .c{padding:9px 11px; border-bottom:1px solid var(--line)}
+.thread .c:last-child{border-bottom:0}
+.thread .cm{display:flex; gap:7px; align-items:center; flex-wrap:wrap; font-size:11.5px;
+  color:var(--muted); margin-bottom:3px}
+.thread .cm b{color:var(--ink); font-size:12px}
+.thread .cl{font-variant-numeric:tabular-nums}
+.thread .ct{font-size:13px; color:var(--ink-2); line-height:1.55}
+.rel{margin-top:8px; font-size:11.5px; color:var(--muted); display:flex; gap:6px; flex-wrap:wrap;
+  align-items:center}
+.rel a{font-size:11.5px}
 .snip{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   font-size:13.5px; line-height:1.6; color:var(--ink-2); max-width:620px}
 .full{white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.65; max-width:760px}
@@ -402,6 +439,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
           <span class="avatar-txt" id="ringPct">–</span>
         </div>
         <div class="ringcap">แปลเป็นไทยแล้ว · <span id="ringSub">–</span></div>
+        <div class="mood" id="heroMood">–</div>
         <h2 id="heroTitle">Threads Feed</h2>
         <div class="role" id="heroRole">แหล่งข้อมูลจริง · ฐานข้อมูล Harken</div>
         <div class="stats">
@@ -495,12 +533,14 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
               <th scope="col" aria-sort="descending"><button type="button" data-sort="date">เวลา <span aria-hidden="true">↓</span></button></th>
               <th scope="col">ผู้โพสต์ / แพลตฟอร์ม</th>
               <th scope="col">ข้อความ</th>
-              <th scope="col"><button type="button" data-sort="likes">ไลก์</button></th>
+              <th scope="col">ตัวชี้วัด <button type="button" data-sort="likes" title="เรียงตามไลก์">↕</button></th>
+              <th scope="col">คอมเมนต์ / ทิศทาง</th>
+              <th scope="col">เชื่อมโยง</th>
               <th scope="col"><span class="sr">ลิงก์</span></th>
             </tr>
           </thead>
           <tbody id="rows">
-            <tr><td colspan="5" style="padding:16px"><div class="skel" style="width:55%;margin-bottom:9px"></div><div class="skel" style="width:82%"></div></td></tr>
+            <tr><td colspan="7" style="padding:16px"><div class="skel" style="width:55%;margin-bottom:9px"></div><div class="skel" style="width:82%"></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -541,7 +581,12 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
 (function(){
   'use strict';
   const $ = s => document.querySelector(s);
-  const SENT = {pos:{n:'บวก', c:'pos'}, neu:{n:'กลาง', c:'neu'}, neg:{n:'ลบ', c:'neg'}, none:{n:'ยังไม่ระบุ', c:'none'}};
+  const SENT = {
+    pos: {n:'บวก',  c:'pos',  e:'😊', arrow:'↗'},
+    neu: {n:'กลาง', c:'neu',  e:'😐', arrow:'→'},
+    neg: {n:'ลบ',   c:'neg',  e:'😠', arrow:'↘'},
+    none:{n:'ยังไม่ระบุ', c:'none', e:'·', arrow:'–'}
+  };
   const PLAT = {threads:'Threads', facebook:'Facebook', tiktok:'TikTok', other:'อื่น ๆ'};
   const S = {q:'', platform:'', from:'', to:'', sort:'date', page:1, per:25, total:0,
              open:new Set(), gran:'day', trend:null, terms:[], sentiment:'', issues:[]};
@@ -590,6 +635,10 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     const rows = st.by_sentiment || [];
     const tot = Math.max(1, rows.reduce((a, b) => a + b.n, 0));
     const onlyNone = rows.length === 1 && rows[0].s === 'none';
+    const smap = {};
+    rows.forEach(r => { smap[r.s] = r.n; });
+    $('#heroMood').innerHTML = ['pos', 'neu', 'neg']
+      .map(k => '<span>' + SENT[k].e + ' ' + num(smap[k] || 0) + '</span>').join('');
     $('#sent').innerHTML = onlyNone
       ? '<div class="empty"><b>ยังไม่ได้วิเคราะห์อารมณ์</b>ระบบจัดประเภทอัตโนมัติหลังแปลเสร็จ</div>'
       : rows.map(s => {
@@ -597,7 +646,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
           const p2 = Math.round(s.n / tot * 100);
           const on = S.sentiment === s.s;
           return '<button type="button" class="bar ' + m.c + '" data-sent="' + esc(s.s) + '" aria-pressed="' + on + '">' +
-            '<span class="lab">' + esc(m.n) + '</span>' +
+            '<span class="lab">' + m.e + ' ' + esc(m.n) + '</span>' +
             '<span class="track"><span class="fill" style="width:' + p2 + '%"></span></span>' +
             '<span class="val">' + num(s.n) + ' · ' + p2 + '%</span></button>';
         }).join('');
@@ -619,12 +668,21 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       ' <b class="n num">' + num(t.n) + '</b></button>'
     ).join('') || '<span style="font-size:12.5px;color:var(--muted)">ยังไม่มีคำที่ถูกพูดถึงซ้ำ</span>';
 
+    // overall comment mood: dominant emotion across stored comment bodies
+    const cRows = (st.comment_sentiment || []).filter(r => r.s !== 'none' && r.n > 0);
+    const cTop = cRows.sort((a, b) => b.n - a.n)[0];
+    const commentMood = (st.comments || 0) === 0
+      ? '😐 ยังไม่มี'
+      : (cTop ? (SENT[cTop.s] || SENT.none).e + ' ' + (SENT[cTop.s] || SENT.none).n : '· ไม่ระบุ');
+
     $('#statList').innerHTML = [
       ['โพสต์ทั้งหมด', num(st.total), 'M3 4.5h14M3 10h14M3 15.5h9'],
       ['แปลเป็นไทยแล้ว', num(st.translated) + ' · ' + pct + '%', 'M2.5 8h11M9.5 4l4 4-4 4'],
       ['ไลก์รวม', num(eng.likes), 'M8 13.6S2.2 10 2.2 5.9a3.1 3.1 0 0 1 5.8-1.1 3.1 3.1 0 0 1 5.8 1.1c0 4.1-5.8 7.7-5.8 7.7Z'],
       ['ตอบกลับ', num(eng.replies), 'M3 4h10v6H6l-3 3V4Z'],
       ['รีโพสต์', num(eng.reposts), 'M4 6.5 8 3l4 3.5M12 9.5 8 13l-4-3.5'],
+      ['คอมเมนต์', num(st.comments || 0) + ' ข้อความ', 'M3.5 4h13v8h-8l-5 4V4Z'],
+      ['ทิศทางคอมเมนต์', commentMood, 'M10 2.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15ZM7 8h.01M13 8h.01M7 12c.8 1.2 1.9 1.8 3 1.8s2.2-.6 3-1.8'],
       ['ผู้โพสต์', num(au.length) + ' คน', 'M10 7a3.1 3.1 0 1 0 0-6.2A3.1 3.1 0 0 0 10 7ZM4 16.2c.9-2.9 3.2-4.4 6-4.4s5.1 1.5 6 4.4']
     ].map(r =>
       '<div class="row"><span class="i"><svg width="15" height="15" viewBox="0 0 20 20" fill="none">' +
@@ -778,7 +836,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       const on = sel.has(t.label);
       const bits = [num(t.n_posts) + ' โพสต์', 'ก่อนหน้า ' + num(t.prev_posts)];
       if (t.top_author) bits.push('@' + t.top_author);
-      bits.push(num(t.sentiment.pos) + ' บวก · ' + num(t.sentiment.neg) + ' ลบ');
+      bits.push('😊 ' + num(t.sentiment.pos) + ' · 😐 ' + num(t.sentiment.neu) + ' · 😠 ' + num(t.sentiment.neg));
       return '<button class="issue" type="button" data-term="' + esc(t.label) + '" aria-pressed="' + on + '"' +
         ' title="คลิกเพื่อกรองเฉพาะประเด็นนี้">' +
         '<span class="rank">' + String(i+1).padStart(2,'0') + '</span>' +
@@ -822,23 +880,64 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       const open = S.open.has(p.url);
       const th = p.text_th || p.text_raw || '';
       const sent = SENT[p.sentiment] || null;
+      const cs = p.comment_sentiment || {pos:0, neu:0, neg:0, none:0};
+      const dir = SENT[p.comment_direction] || SENT.none;
+      const emos = ['pos', 'neu', 'neg'].filter(k => cs[k] > 0)
+        .map(k => '<span class="emo ' + k + '">' + SENT[k].e + ' ' + num(cs[k]) + '</span>').join('');
+      const ccount = p.comment_count || 0;
+
+      // comment thread shown when the row is expanded
+      const thread = ccount
+        ? '<div class="thread"><div class="th"><b>' + num(ccount) + ' คอมเมนต์</b>' +
+          '<span class="emo ' + dir.c + '">' + dir.e + ' ทิศทาง ' + dir.n + '</span></div>' +
+          (p.comments || []).map(c => {
+            const s = SENT[c.sentiment] || SENT.none;
+            return '<div class="c"><div class="cm"><b>@' + esc(c.author) + '</b>' +
+              '<span class="emo ' + s.c + '">' + s.e + ' ' + s.n + '</span>' +
+              '<span>' + esc(clock(c.posted_iso)) + '</span>' +
+              '<span class="cl">❤ ' + num(c.likes) + '</span></div>' +
+              '<div class="ct">' + highlight(c.text_th || c.text_raw || '') + '</div></div>';
+          }).join('') + '</div>'
+        : (p.replies ? '<div class="chint">💬 ' + num(p.replies) +
+            ' การตอบกลับตามตัวเลขของโพสต์ — ฟีดนี้ไม่ได้เก็บข้อความคอมเมนต์</div>' : '');
+
+      const related = (p.related && p.related.length)
+        ? '<div class="rel">เชื่อมโยง:' + p.related.map(u =>
+            '<a href="' + esc(u) + '" target="_blank" rel="noopener" data-stop="1">' +
+            esc(String(u).replace(/^https?:\/\/[^/]+\//, '').slice(0, 26)) + ' ↗</a>').join('') + '</div>'
+        : '';
+
       return '<tr class="row" data-url="' + esc(p.url) + '" aria-expanded="' + open + '" tabindex="0">' +
         '<td data-l="เวลา"><span class="when">' + esc(clock(p.posted_iso)) + '</span></td>' +
         '<td data-l="ผู้โพสต์"><div class="who">@' + esc(p.author) + '</div><div class="tags">' +
           '<span class="tag plat">' + esc(PLAT[p.platform] || p.platform) + '</span>' +
-          (sent ? '<span class="tag ' + sent.c + '">' + esc(sent.n) + '</span>' : '') +
+          (sent ? '<span class="tag ' + sent.c + '">' + sent.e + ' ' + esc(sent.n) + '</span>' : '') +
         '</div></td>' +
         '<td data-l="ข้อความ">' + (open
-          ? '<div class="full">' + highlight(th) + '</div>' +
+          ? '<div class="full">' + highlight(th) + '</div>' + thread + related +
             ((p.text_th && p.text_th !== p.text_raw)
               ? '<div class="expand"><button class="btn" type="button" data-raw="' + esc(p.url) + '" aria-expanded="false">แสดงข้อความต้นฉบับ</button></div>' +
                 '<div class="raw" hidden>' + esc(p.text_raw) + '</div>'
               : '')
-          : '<div class="snip">' + highlight(th) + '</div>') + '</td>' +
-        '<td data-l="ไลก์"><span class="num" style="color:var(--muted)">' + num(p.likes) + '</span></td>' +
+          : '<div class="snip">' + highlight(th) + '</div>' +
+            (ccount ? '<div class="chint">' + dir.e + ' ' + num(ccount) + ' คอมเมนต์ · ทิศทาง' + esc(dir.n) + '</div>' : '')) + '</td>' +
+        '<td data-l="ตัวชี้วัด"><div class="metrics">' +
+          '<span>❤ <b>' + num(p.likes) + '</b></span>' +
+          '<span>💬 <b>' + num(p.replies) + '</b></span>' +
+          '<span>🔁 <b>' + num(p.reposts) + '</b></span></div></td>' +
+        '<td data-l="คอมเมนต์">' + (ccount
+          ? '<div class="cnum">' + num(ccount) + ' คอมเมนต์</div><div class="emos">' + emos + '</div>' +
+            '<div class="cdir ' + dir.c + '">' + dir.arrow + ' ' + dir.e + ' ทิศทาง' + esc(dir.n) + '</div>'
+          : '<div class="chint">ไม่มีข้อความคอมเมนต์</div>' +
+            (sent ? '<div class="emos"><span class="emo ' + sent.c + '">' + sent.e + ' ทิศทางโพสต์ ' + esc(sent.n) + '</span></div>' : '') +
+            (p.replies ? '<div class="chint">💬 ' + num(p.replies) + ' ตอบกลับ (ตามตัวเลข)</div>' : '')) + '</td>' +
+        '<td data-l="เชื่อมโยง">' + (p.topic
+          ? '<span class="tag topic">#' + esc(p.topic) + '</span>' +
+            '<div class="chint">+ ' + num(Math.max(0, (p.topic_posts || 1) - 1)) + ' โพสต์ในประเด็นเดียวกัน</div>'
+          : '<div class="chint">—</div>') + '</td>' +
         '<td data-l="ลิงก์"><a href="' + esc(p.url) + '" target="_blank" rel="noopener" data-stop="1">เปิด ↗</a></td>' +
       '</tr>';
-    }).join('') : '<tr><td colspan="5"><div class="empty"><b>ไม่พบโพสต์ที่ตรงกับเงื่อนไข</b>ลองล้างตัวกรอง หรือใช้คำค้นที่สั้นลง</div></td></tr>';
+    }).join('') : '<tr><td colspan="7"><div class="empty"><b>ไม่พบโพสต์ที่ตรงกับเงื่อนไข</b>ลองล้างตัวกรอง หรือใช้คำค้นที่สั้นลง</div></td></tr>';
     if (html !== rowsCache){ rowsCache = html; $('#rows').innerHTML = html; }
   }
 

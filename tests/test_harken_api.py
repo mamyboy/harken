@@ -146,3 +146,33 @@ def test_posts_terms_are_anded():
     one = client.get('/api/posts?terms=ทรัมป์&limit=1').json()['total']
     two = client.get('/api/posts?terms=ทรัมป์,อนุทิน&limit=1').json()['total']
     assert two <= one, 'adding a term must narrow the result set'
+
+
+def test_comments_carry_sentiment_direction():
+    target = client.get('/api/posts?limit=1').json()['posts'][0]['url']
+    with db.db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO post_comments (id, url, author, text_raw, text_th, posted_iso, likes, is_author, sentiment)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (target + '#c1', target, 'tester', 'เห็นด้วยมาก', 'เห็นด้วยมาก', '2026-11-18T10:00:00', 3, 0, 'pos'))
+        conn.execute(
+            "INSERT OR REPLACE INTO post_comments (id, url, author, text_raw, text_th, posted_iso, likes, is_author, sentiment)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (target + '#c2', target, 'tester2', 'ไม่เห็นด้วย', 'ไม่เห็นด้วย', '2026-11-18T11:00:00', 1, 0, 'pos'))
+
+    row = next(p for p in client.get('/api/posts?limit=50').json()['posts'] if p['url'] == target)
+    assert row['comment_count'] == 2
+    assert row['comment_sentiment']['pos'] == 2
+    assert row['comment_direction'] == 'pos'
+    assert all(c['sentiment'] for c in row['comments'])
+    assert row['topic'], 'every table row should carry a topic link'
+
+    detail = client.get('/api/posts/' + target + '/comments').json()
+    assert detail['count'] == 2 and detail['sentiment']['pos'] == 2
+
+    stats = client.get('/api/stats').json()
+    assert stats['comments'] >= 2
+    assert any(s['s'] == 'pos' for s in stats['comment_sentiment'])
+
+    lean = client.get('/api/posts?comments=0&limit=1').json()['posts'][0]
+    assert 'comments' not in lean, 'comments=0 must skip the comment payload'

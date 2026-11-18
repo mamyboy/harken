@@ -51,6 +51,9 @@ async def _watch_feeds():
                 se = await asyncio.to_thread(sentiment_mod.run)
                 if se.get('pending'):
                     print('[sentiment] %s' % (se,), flush=True)
+                sc = await asyncio.to_thread(sentiment_mod.run_comments)
+                if sc.get('pending'):
+                    print('[sentiment:comments] %s' % (sc,), flush=True)
         except Exception as e:
             print('[watch] error %s: %s' % (type(e).__name__, e), flush=True)
         await asyncio.sleep(INGEST_EVERY)
@@ -110,6 +113,11 @@ def stats():
         translated = conn.execute(
             "SELECT COUNT(*) c FROM posts WHERE text_th <> '' AND text_th <> text_raw").fetchone()['c']
         comments = conn.execute('SELECT COUNT(*) c FROM post_comments').fetchone()['c']
+        comment_sentiment = [dict(r) for r in conn.execute(
+            "SELECT COALESCE(NULLIF(sentiment,''),'none') s, COUNT(*) n FROM post_comments "
+            "GROUP BY s ORDER BY n DESC")]
+        posts_with_comments = conn.execute(
+            'SELECT COUNT(DISTINCT url) c FROM post_comments').fetchone()['c']
         by_sentiment = [dict(r) for r in conn.execute(
             "SELECT COALESCE(NULLIF(sentiment,''),'none') s, COUNT(*) n FROM posts "
             "GROUP BY s ORDER BY n DESC")]
@@ -123,6 +131,7 @@ def stats():
             'SELECT text_th, text_raw FROM posts LIMIT 800')]
 
     return {'total': total, 'translated': translated, 'comments': comments,
+            'comment_sentiment': comment_sentiment, 'posts_with_comments': posts_with_comments,
             'by_platform': by_platform, 'by_day': by_day, 'by_sentiment': by_sentiment,
             'top_authors': top_authors, 'top_terms': top_terms(texts),
             'engagement': {'likes': score['l'], 'replies': score['r'], 'reposts': score['rp']}}
@@ -398,6 +407,62 @@ def issues(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20)
     return {'issues': out[:limit], 'window_days': days, 'candidates': len(cand)}
 
 
+def _post_topics(conn, limit=8):
+    """Cheap topic map for the table: top terms -> post urls containing them."""
+    rows = [dict(r) for r in conn.execute(
+        'SELECT url, text_th, text_raw FROM posts')]
+    texts = [(r['text_th'] or r['text_raw'] or '') for r in rows]
+    topics = []
+    for t in top_terms(texts, limit=limit):
+        term = t['term']
+        urls = [r['url'] for r, txt in zip(rows, texts) if term.lower() in txt.lower()]
+        if len(urls) >= 2:
+            topics.append({'term': term, 'urls': urls})
+    return topics
+
+
+def _attach_comments(conn, rows, topics):
+    """Add comment list, comment sentiment mix, topic and related posts to each row."""
+    if not rows:
+        return rows
+    urls = [r['url'] for r in rows]
+    marks = ','.join('?' * len(urls))
+    cs = [dict(r) for r in conn.execute(
+        'SELECT * FROM post_comments WHERE url IN (%s) ORDER BY posted_iso DESC' % marks, urls)]
+    bucket = {}
+    for c in cs:
+        bucket.setdefault(c['url'], []).append(c)
+
+    for r in rows:
+        mine = bucket.get(r['url'], [])
+        mix = {'pos': 0, 'neu': 0, 'neg': 0, 'none': 0}
+        for c in mine:
+            s = c.get('sentiment') or ''
+            mix[s if s in mix else 'none'] += 1
+        # direction = whichever label carries the most comments (ties -> neu)
+        ranked = sorted((('pos', mix['pos']), ('neg', mix['neg']), ('neu', mix['neu'])),
+                        key=lambda kv: kv[1], reverse=True)
+        direction = ranked[0][0] if ranked[0][1] else 'none'
+        if ranked[0][1] and len(ranked) > 1 and ranked[1][1] == ranked[0][1]:
+            direction = 'neu'
+        r['comments'] = mine
+        r['comment_count'] = len(mine)
+        r['comment_sentiment'] = mix
+        r['comment_direction'] = direction
+
+        body = (r.get('text_th') or r.get('text_raw') or '').lower()
+        topic = next((t for t in topics if t['term'].lower() in body), None)
+        if topic:
+            r['topic'] = topic['term']
+            r['topic_posts'] = len(topic['urls'])
+            r['related'] = [u for u in topic['urls'] if u != r['url']][:3]
+        else:
+            r['topic'] = ''
+            r['topic_posts'] = 0
+            r['related'] = []
+    return rows
+
+
 @app.get('/api/posts')
 def posts(
     q: str = '',
@@ -410,7 +475,7 @@ def posts(
     sort: str = 'newest',
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    comments: int = Query(0, ge=0, le=1),
+    comments: int = Query(1, ge=0, le=1),
 ):
     where, params = [], []
     _add_filters(where, params, q, platform, relevance, date_from, date_to, sentiment, terms)
@@ -432,15 +497,7 @@ def posts(
                 + sql_where + ' GROUP BY s', params)},
         }
         if comments and rows:
-            urls = [r['url'] for r in rows]
-            marks = ','.join('?' * len(urls))
-            cs = [dict(r) for r in conn.execute(
-                'SELECT * FROM post_comments WHERE url IN (%s) ORDER BY posted_iso DESC' % marks, urls)]
-            bucket = {}
-            for c in cs:
-                bucket.setdefault(c['url'], []).append(c)
-            for r in rows:
-                r['comments'] = bucket.get(r['url'], [])
+            _attach_comments(conn, rows, _post_topics(conn))
 
     return {'total': total, 'limit': limit, 'offset': offset, 'sort': sort,
             'facets': facets, 'terms_active': _term_list(terms), 'posts': rows}
@@ -451,7 +508,11 @@ def post_comments(post_id: str):
     with db.db() as conn:
         rows = [dict(r) for r in conn.execute(
             'SELECT * FROM post_comments WHERE url = ? ORDER BY posted_iso DESC', (post_id,))]
-    return {'url': post_id, 'count': len(rows), 'comments': rows}
+    mix = {'pos': 0, 'neu': 0, 'neg': 0, 'none': 0}
+    for r in rows:
+        s = r.get('sentiment') or ''
+        mix[s if s in mix else 'none'] += 1
+    return {'url': post_id, 'count': len(rows), 'sentiment': mix, 'comments': rows}
 
 
 @app.get('/')
