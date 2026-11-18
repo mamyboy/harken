@@ -74,6 +74,11 @@ def _author(p):
             or p.get('username') or p.get('page') or '')
 
 
+def _run_key(path):
+    """One search run = one feed file. Keeps each collection separate forever."""
+    return os.path.splitext(os.path.basename(path))[0]
+
+
 def _num(v):
     try:
         return int(v)
@@ -94,6 +99,7 @@ def ingest(project=PROJECT, verbose=False):
         for path in paths:
             files += 1
             platform = _platform(path)
+            run_key = _run_key(path)
             for line in open(path, encoding='utf-8'):
                 line = line.strip()
                 if not line:
@@ -123,6 +129,7 @@ def ingest(project=PROJECT, verbose=False):
                     ','.join(p.get('queries') or []) if isinstance(p.get('queries'), list) else str(p.get('queries') or ''),
                     p.get('match') or '',
                     p.get('sentiment') or '',
+                    run_key,
                     now,
                     now,
                     url,
@@ -131,8 +138,8 @@ def ingest(project=PROJECT, verbose=False):
                 conn.execute(
                     """INSERT INTO posts
                        (platform, author, text_raw, text_th, posted_at, posted_iso, likes, replies,
-                        reposts, shares, is_reply, query, relevance, sentiment, fetched_at, updated_at, url)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        reposts, shares, is_reply, query, relevance, sentiment, run, fetched_at, updated_at, url)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                        ON CONFLICT(url) DO UPDATE SET
                          platform=excluded.platform, author=excluded.author, text_raw=excluded.text_raw,
                          text_th=CASE WHEN excluded.text_th <> '' AND excluded.text_th <> excluded.text_raw
@@ -143,6 +150,7 @@ def ingest(project=PROJECT, verbose=False):
                          relevance=excluded.relevance,
                          sentiment=CASE WHEN excluded.sentiment <> '' THEN excluded.sentiment
                                         ELSE posts.sentiment END,
+                         run=excluded.run,
                          updated_at=excluded.updated_at""",
                     row,
                 )

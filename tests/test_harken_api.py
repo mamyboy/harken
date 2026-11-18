@@ -1,12 +1,16 @@
 """API tests for the Harken dashboard (FastAPI + SQLite)."""
+import json
 import os
 import tempfile
 
 import pytest
 from fastapi.testclient import TestClient
 
-TMP_DB = os.path.join(tempfile.mkdtemp(), 'test_harken.db')
+ROOT = tempfile.mkdtemp()
+TMP_DB = os.path.join(ROOT, 'test_harken.db')
+FEEDS = os.path.join(ROOT, 'feeds')
 os.environ['HARKEN_DB'] = TMP_DB
+os.environ['HARKEN_FEEDS'] = FEEDS
 
 from api import db, ingest  # noqa: E402
 from api.main import app  # noqa: E402
@@ -14,10 +18,35 @@ from api.main import app  # noqa: E402
 client = TestClient(app)
 
 
+def _feed(name, rows):
+    os.makedirs(FEEDS, exist_ok=True)
+    with open(os.path.join(FEEDS, name), 'w', encoding='utf-8') as fh:
+        for r in rows:
+            fh.write(json.dumps(r, ensure_ascii=False) + '\n')
+
+
+# two separate search runs, so run isolation is testable
+_feed('threads_run-a.jsonl', [
+    {'url': 'https://threads.com/@a/post/1', 'user': 'tnamcot', 'text': 'ทรัมป์ ประกาศนโยบายใหม่ อนุทิน ตอบโต้',
+     'posted_iso': '2026-11-19T09:00+07:00', 'metrics': {'likes': 12, 'replies': 3, 'reposts': 1, 'shares': 2},
+     'sentiment': 'neg'},
+    {'url': 'https://threads.com/@a/post/2', 'user': 'gelocamaya', 'text': 'ทรัมป์ กับ ข่าวปลอม ในโซเชียลมีเดีย',
+     'posted_iso': '2026-11-18T20:00+07:00', 'metrics': {'likes': 5, 'replies': 1}, 'sentiment': 'neu'},
+    {'url': 'https://threads.com/@a/post/3', 'user': 'ny_an', 'text': 'ทรัมป์ แถลงข่าวที่ทำเนียบขาว อนุทิน ร่วมวง',
+     'posted_iso': '2026-11-18T11:00+07:00', 'metrics': {'likes': 7}, 'sentiment': 'neu'},
+])
+_feed('facebook_run-b.jsonl', [
+    {'url': 'https://facebook.com/p/1', 'author': 'เพจข่าวทดสอบ', 'text': 'หุ้นไทยปิดบวก นักลงทุนจับตาเงินเฟ้อ',
+     'posted_iso': '2026-11-19T03:00+07:00', 'metrics': {'reactions': 30, 'comments': 4}, 'sentiment': 'pos'},
+    {'url': 'https://facebook.com/p/2', 'author': 'เพจข่าวทดสอบ', 'text': 'หุ้นดาวโจนส์ร่วง หลังธนาคารกลางขึ้นดอกเบี้ย',
+     'posted_iso': '2026-11-18T21:00+07:00', 'metrics': {'reactions': 11, 'comments': 2}, 'sentiment': 'neg'},
+])
+
+
 @pytest.fixture(scope='session', autouse=True)
 def _db():
     db.init()
-    ingest.ingest()
+    ingest.ingest(project=FEEDS)
     yield
 
 
@@ -146,6 +175,40 @@ def test_posts_terms_are_anded():
     one = client.get('/api/posts?terms=ทรัมป์&limit=1').json()['total']
     two = client.get('/api/posts?terms=ทรัมป์,อนุทิน&limit=1').json()['total']
     assert two <= one, 'adding a term must narrow the result set'
+
+
+def test_runs_keep_collections_separate():
+    d = client.get('/api/runs').json()
+    assert d['count'] == 2, d
+    by_run = {r['run']: r for r in d['runs']}
+    assert set(by_run) == {'threads_run-a', 'facebook_run-b'}
+    assert by_run['threads_run-a']['posts'] == 3
+    assert by_run['facebook_run-b']['posts'] == 2
+    assert d['total_posts'] == 5
+    assert by_run['threads_run-a']['platforms'] == ['threads']
+    assert by_run['threads_run-a']['label'], 'a run must always carry a readable label'
+
+    # the table is scoped to one run at a time
+    only_b = client.get('/api/posts?run=facebook_run-b&limit=50').json()
+    assert only_b['total'] == 2
+    assert {p['run'] for p in only_b['posts']} == {'facebook_run-b'}
+    assert all(p['platform'] == 'facebook' for p in only_b['posts'])
+
+    # every aggregation follows the selection, not just the table
+    assert client.get('/api/stats?run=facebook_run-b').json()['total'] == 2
+    assert client.get('/api/stats?run=threads_run-a').json()['total'] == 3
+    tr = client.get('/api/trend?days=7&run=facebook_run-b').json()
+    assert sum(tr['cur']) == 2, tr
+    assert client.get('/api/stats').json()['total'] == 5, 'no run = all runs'
+
+    # two runs can be requested together
+    both = client.get('/api/posts?run=threads_run-a,facebook_run-b&limit=50').json()
+    assert both['total'] == 5
+
+
+def test_ingest_stamps_run_on_every_row():
+    rows = client.get('/api/posts?limit=50').json()['posts']
+    assert all(p.get('run') for p in rows), 'every post must belong to a run'
 
 
 def test_comments_carry_sentiment_direction():

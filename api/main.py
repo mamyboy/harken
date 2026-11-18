@@ -17,7 +17,7 @@ from . import db, ingest as ingest_mod, translate as translate_mod, sentiment as
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, 'static')
-PROJECT = os.path.expanduser('~/Projects/harken')
+PROJECT = os.environ.get('HARKEN_FEEDS', os.path.expanduser('~/Projects/harken'))
 INGEST_EVERY = float(os.environ.get('HARKEN_INGEST_SECONDS', '15'))
 
 app = FastAPI(title='Harken Dashboard API', version='1.0.0')
@@ -82,7 +82,7 @@ def health():
 
 @app.post('/api/ingest')
 async def do_ingest():
-    return await asyncio.to_thread(ingest_mod.ingest)
+    return await asyncio.to_thread(ingest_mod.ingest, PROJECT)
 
 
 @app.get('/health')
@@ -102,16 +102,21 @@ async def do_sentiment():
 
 
 @app.get('/api/stats')
-def stats():
+def stats(run: str = ''):
+    rw, rp = [], []
+    _run_clause(rw, rp, run)
+    W = ('WHERE ' + ' AND '.join(rw)) if rw else ''
     with db.db() as conn:
-        total = conn.execute('SELECT COUNT(*) c FROM posts').fetchone()['c']
+        total = conn.execute('SELECT COUNT(*) c FROM posts ' + W, rp).fetchone()['c']
         by_platform = [dict(r) for r in conn.execute(
-            'SELECT platform, COUNT(*) n FROM posts GROUP BY platform ORDER BY n DESC')]
+            'SELECT platform, COUNT(*) n FROM posts ' + W + ' GROUP BY platform ORDER BY n DESC', rp)]
         by_day = [dict(r) for r in conn.execute(
             "SELECT substr(posted_iso,1,10) d, COUNT(*) n FROM posts "
-            "WHERE posted_iso <> '' GROUP BY d ORDER BY d DESC LIMIT 45")]
+            "WHERE posted_iso <> ''" + (' AND ' + ' AND '.join(rw) if rw else '') +
+            ' GROUP BY d ORDER BY d DESC LIMIT 45', rp)]
         translated = conn.execute(
-            "SELECT COUNT(*) c FROM posts WHERE text_th <> '' AND text_th <> text_raw").fetchone()['c']
+            "SELECT COUNT(*) c FROM posts WHERE text_th <> '' AND text_th <> text_raw"
+            + (' AND ' + ' AND '.join(rw) if rw else ''), rp).fetchone()['c']
         comments = conn.execute('SELECT COUNT(*) c FROM post_comments').fetchone()['c']
         comment_sentiment = [dict(r) for r in conn.execute(
             "SELECT COALESCE(NULLIF(sentiment,''),'none') s, COUNT(*) n FROM post_comments "
@@ -119,16 +124,17 @@ def stats():
         posts_with_comments = conn.execute(
             'SELECT COUNT(DISTINCT url) c FROM post_comments').fetchone()['c']
         by_sentiment = [dict(r) for r in conn.execute(
-            "SELECT COALESCE(NULLIF(sentiment,''),'none') s, COUNT(*) n FROM posts "
-            "GROUP BY s ORDER BY n DESC")]
+            "SELECT COALESCE(NULLIF(sentiment,''),'none') s, COUNT(*) n FROM posts " + W +
+            " GROUP BY s ORDER BY n DESC", rp)]
         top_authors = [dict(r) for r in conn.execute(
             'SELECT author, COUNT(*) n, SUM(likes + replies + reposts) eng FROM posts '
-            'WHERE author <> \'\' GROUP BY author ORDER BY eng DESC, n DESC LIMIT 8')]
+            'WHERE author <> \'\'' + (' AND ' + ' AND '.join(rw) if rw else '') +
+            ' GROUP BY author ORDER BY eng DESC, n DESC LIMIT 8', rp)]
         score = conn.execute(
             'SELECT COALESCE(SUM(likes),0) l, COALESCE(SUM(replies),0) r, '
-            'COALESCE(SUM(reposts),0) rp FROM posts').fetchone()
+            'COALESCE(SUM(reposts),0) rp FROM posts ' + W, rp).fetchone()
         texts = [r['text_th'] or r['text_raw'] or '' for r in conn.execute(
-            'SELECT text_th, text_raw FROM posts LIMIT 800')]
+            'SELECT text_th, text_raw FROM posts ' + W + ' LIMIT 800', rp)]
 
     return {'total': total, 'translated': translated, 'comments': comments,
             'comment_sentiment': comment_sentiment, 'posts_with_comments': posts_with_comments,
@@ -175,8 +181,16 @@ def _term_list(raw):
     return out[:8]
 
 
+def _run_clause(where, params, run=''):
+    """Restrict any query to one or more search runs (feed files). '' = all runs."""
+    runs = [r.strip() for r in (run or '').split(',') if r.strip()]
+    if runs:
+        where.append('run IN (' + ','.join('?' * len(runs)) + ')')
+        params += runs
+
+
 def _add_filters(where, params, q='', platform='', relevance='', date_from='', date_to='',
-                 sentiment='', terms=''):
+                 sentiment='', terms='', run=''):
     """Single source of truth for post filters, shared by API + CSV export."""
     if q.strip():
         where.append('(text_raw LIKE ? OR text_th LIKE ? OR author LIKE ?)')
@@ -201,17 +215,18 @@ def _add_filters(where, params, q='', platform='', relevance='', date_from='', d
     if date_to.strip():
         where.append('substr(posted_iso,1,10) <= ?')
         params.append(date_to.strip())
+    _run_clause(where, params, run)
     return where, params
 
 
 @app.get('/api/export.csv')
 def export_csv(q: str = '', platform: str = '', date_from: str = '', date_to: str = '',
-               sentiment: str = '', terms: str = ''):
+               sentiment: str = '', terms: str = '', run: str = ''):
     """UTF-8 BOM CSV so Thai opens correctly in Excel."""
     import csv
     import io
     where, params = [], []
-    _add_filters(where, params, q, platform, '', date_from, date_to, sentiment, terms)
+    _add_filters(where, params, q, platform, '', date_from, date_to, sentiment, terms, run)
     sql_where = ('WHERE ' + ' AND '.join(where)) if where else ''
 
     buf = io.StringIO()
@@ -241,12 +256,15 @@ def _iso(s):
 
 
 @app.get('/api/trend')
-def trend(gran: str = 'day', days: int = Query(7, ge=1, le=30)):
+def trend(gran: str = 'day', days: int = Query(7, ge=1, le=30), run: str = ''):
     """Two comparison windows of real post counts, anchored to the newest post date."""
     import datetime as dt
+    rw, rp = [], []
+    _run_clause(rw, rp, run)
     with db.db() as conn:
         rows = [r['posted_iso'] for r in conn.execute(
-            "SELECT posted_iso FROM posts WHERE posted_iso <> ''") if r['posted_iso']]
+            "SELECT posted_iso FROM posts WHERE posted_iso <> ''"
+            + (' AND ' + ' AND '.join(rw) if rw else ''), rp) if r['posted_iso']]
     if not rows:
         return {'labels': [], 'cur': [], 'prev': [], 'gran': gran, 'source': 'posts'}
 
@@ -286,12 +304,16 @@ def trend(gran: str = 'day', days: int = Query(7, ge=1, le=30)):
 
 
 @app.get('/api/terms-changes')
-def terms_changes(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20)):
+def terms_changes(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20),
+                  run: str = ''):
     """Top terms in the recent window with change vs the previous window (real texts)."""
     import datetime as dt
+    rw, rp = [], []
+    _run_clause(rw, rp, run)
     with db.db() as conn:
         rows = [dict(r) for r in conn.execute(
-            'SELECT text_th, text_raw, posted_iso FROM posts WHERE posted_iso <> \'\'')]
+            'SELECT text_th, text_raw, posted_iso FROM posts WHERE posted_iso <> \'\''
+            + (' AND ' + ' AND '.join(rw) if rw else ''), rp)]
     if not rows:
         return {'terms': [], 'window_days': days}
     stamps = [t for t in (_iso(r['posted_iso']) for r in rows) if t]
@@ -317,7 +339,7 @@ def terms_changes(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1,
 
 @app.get('/api/issues')
 def issues(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20),
-           q: str = '', platform: str = '', sentiment: str = ''):
+           q: str = '', platform: str = '', sentiment: str = '', run: str = ''):
     """Group posts into topics (issues) by term co-occurrence, not just top terms.
 
     Terms whose post sets overlap strongly (Jaccard >= 0.5) are treated as one
@@ -325,7 +347,7 @@ def issues(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20)
     """
     import datetime as dt
     where, params = [], []
-    _add_filters(where, params, q, platform, '', '', '', sentiment, '')
+    _add_filters(where, params, q, platform, '', '', '', sentiment, '', run)
     sql_where = ('WHERE ' + ' AND '.join(where)) if where else ''
     with db.db() as conn:
         rows = [dict(r) for r in conn.execute(
@@ -472,13 +494,14 @@ def posts(
     date_to: str = '',
     sentiment: str = '',
     terms: str = '',
+    run: str = '',
     sort: str = 'newest',
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     comments: int = Query(1, ge=0, le=1),
 ):
     where, params = [], []
-    _add_filters(where, params, q, platform, relevance, date_from, date_to, sentiment, terms)
+    _add_filters(where, params, q, platform, relevance, date_from, date_to, sentiment, terms, run)
     sql_where = ('WHERE ' + ' AND '.join(where)) if where else ''
     order = {'oldest': 'posted_iso ASC',
              'likes': 'likes DESC, posted_iso DESC',
@@ -501,6 +524,67 @@ def posts(
 
     return {'total': total, 'limit': limit, 'offset': offset, 'sort': sort,
             'facets': facets, 'terms_active': _term_list(terms), 'posts': rows}
+
+
+@app.get('/api/runs')
+def runs():
+    """One row per search run (feed file): label, platform, size and date span.
+
+    This is what keeps collections apart — the dashboard shows a run at a time.
+    """
+    import glob
+    import os
+    import urllib.parse
+
+    def label_for(key):
+        """Friendly label: the query the run searched, else the cleaned file name."""
+        path = os.path.join(PROJECT, key + '.jsonl')
+        meta = path + '.meta.json'
+        if os.path.exists(meta):
+            try:
+                m = json.load(open(meta, encoding='utf-8'))
+                for k in ('keyword', 'intent', 'name', 'topic'):
+                    if isinstance(m.get(k), str) and m[k].strip():
+                        return m[k].strip(), m.get('queries') or []
+            except Exception:
+                pass
+        base = urllib.parse.unquote(key or '')
+        for pre in ('fbfeed_', 'facebook_', 'fb_', 'threads_', 'th_', 'tiktok_', 'tt_',
+                    'twitter_', 'tw_', 'x_', 'instagram_', 'ig_', 'youtube_', 'yt_',
+                    'pantip_', 'pt_', 'lemon8_', 'l8_'):
+            if base.lower().startswith(pre):
+                base = base[len(pre):]
+                break
+        return base or key, []
+
+    with db.db() as conn:
+        rows = [dict(r) for r in conn.execute(
+            'SELECT run, platform, COUNT(*) n, MIN(posted_iso) first_iso, MAX(posted_iso) last_iso, '
+            "MIN(fetched_at) loaded_at, SUM(likes + replies + reposts) eng FROM posts "
+            "GROUP BY run, platform ORDER BY MAX(posted_iso) DESC")]
+
+    merged = {}
+    for r in rows:
+        key = r['run'] or ''
+        cur = merged.setdefault(key, {'run': key, 'posts': 0, 'platforms': [],
+                                      'first_iso': r['first_iso'], 'last_iso': r['last_iso'],
+                                      'loaded_at': r['loaded_at'], 'engagement': 0})
+        cur['posts'] += r['n']
+        cur['engagement'] += r['eng'] or 0
+        if r['platform'] and r['platform'] not in cur['platforms']:
+            cur['platforms'].append(r['platform'])
+        if r['first_iso'] and (not cur['first_iso'] or r['first_iso'] < cur['first_iso']):
+            cur['first_iso'] = r['first_iso']
+        if r['last_iso'] and (not cur['last_iso'] or r['last_iso'] > cur['last_iso']):
+            cur['last_iso'] = r['last_iso']
+
+    out = []
+    for key, cur in merged.items():
+        label, queries = label_for(key)
+        exists = os.path.exists(os.path.join(PROJECT, (key or '') + '.jsonl'))
+        out.append(dict(cur, label=label, queries=queries[:6], file_exists=exists))
+    out.sort(key=lambda x: (x['last_iso'] or '', x['label']), reverse=True)
+    return {'runs': out, 'count': len(out), 'total_posts': sum(r['posts'] for r in out)}
 
 
 @app.get('/api/posts/{post_id:path}/comments')

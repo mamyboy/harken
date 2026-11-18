@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS posts (
     query       TEXT,
     relevance   TEXT,
     sentiment   TEXT,
+    run         TEXT,
     fetched_at  TEXT,
     updated_at  TEXT
 );
@@ -75,4 +76,9 @@ def init():
         cols = {r['name'] for r in conn.execute('PRAGMA table_info(post_comments)')}
         if 'sentiment' not in cols:
             conn.execute('ALTER TABLE post_comments ADD COLUMN sentiment TEXT')
+        # migrate DBs created before search runs were tracked
+        cols = {r['name'] for r in conn.execute('PRAGMA table_info(posts)')}
+        if 'run' not in cols:
+            conn.execute('ALTER TABLE posts ADD COLUMN run TEXT')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_posts_run ON posts(run)')
     return DB_PATH

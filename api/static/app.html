@@ -279,6 +279,21 @@ tbody tr:last-child td{border-bottom:0}
 .thread .cm b{color:var(--ink); font-size:12px}
 .thread .cl{font-variant-numeric:tabular-nums}
 .thread .ct{font-size:13px; color:var(--ink-2); line-height:1.55}
+/* ── search-run selector ──────────────────────────────────── */
+.runbar{display:flex; gap:7px; align-items:center; flex-wrap:wrap; padding:11px 16px 12px;
+  border-bottom:1px solid var(--line); background:#FAFCFF}
+.runlabel{font-size:11.5px; font-weight:600; color:var(--muted); margin-right:2px}
+.runchip{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line);
+  background:#fff; border-radius:11px; padding:5px 10px; cursor:pointer; font:inherit;
+  color:var(--ink-2); transition:.16s; max-width:260px; text-align:left}
+.runchip:hover{border-color:var(--violet); transform:translateY(-1px)}
+.runchip.on{border-color:var(--violet); background:var(--violet-wash); box-shadow:0 0 0 2px #EDE4FF}
+.runchip .rl{font-size:12px; font-weight:600; color:var(--ink); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; max-width:130px}
+.runchip b{font-size:12px; font-variant-numeric:tabular-nums; color:var(--violet)}
+.runchip.on b{color:var(--violet-d)}
+.runchip .rmeta{font-size:10.5px; color:var(--muted-2); white-space:nowrap}
+.runchip.on .rmeta{color:var(--violet)}
 .rel{margin-top:8px; font-size:11.5px; color:var(--muted); display:flex; gap:6px; flex-wrap:wrap;
   align-items:center}
 .rel a{font-size:11.5px}
@@ -525,6 +540,10 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
         <h2>กระแสสนทนา</h2>
         <span class="hint" id="count-hint">–</span>
       </div>
+      <div class="runbar" id="runbar" role="tablist" aria-label="ชุดการค้นหา">
+        <span class="runlabel">ชุดการค้นหา</span>
+        <button type="button" class="runchip" data-run="" aria-pressed="true">ทุกชุด <b id="runAll">–</b></button>
+      </div>
       <div class="tablewrap">
         <table>
           <caption class="sr">รายการโพสต์จากฐานข้อมูลจริง</caption>
@@ -591,7 +610,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
                 x:'X (Twitter)', twitter:'X (Twitter)', instagram:'Instagram', ig:'Instagram',
                 youtube:'YouTube', pantip:'Pantip', lemon8:'Lemon8', other:'อื่น ๆ'};
   const S = {q:'', platform:'', from:'', to:'', sort:'date', page:1, per:25, total:0,
-             open:new Set(), gran:'day', trend:null, terms:[], sentiment:'', issues:[]};
+             open:new Set(), gran:'day', trend:null, terms:[], sentiment:'', issues:[], run:''};
   const num = v => (v === null || v === undefined || v === '') ? '0' : Number(v).toLocaleString('th-TH');
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const escRx = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -606,6 +625,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     if (S.to) p.set('date_to', S.to);
     if (S.sentiment) p.set('sentiment', S.sentiment);
     if (S.terms.length) p.set('terms', S.terms.join(','));
+    if (S.run) p.set('run', S.run);
     if (S.sort === 'likes') p.set('sort', 'likes');
     p.set('limit', String(S.per));
     p.set('offset', String((S.page - 1) * S.per));
@@ -621,9 +641,39 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       acc.replace(new RegExp(escRx(esc(w)), 'gi'), m => '<mark>' + m + '</mark>'), safe);
   }
 
+  /* ── search runs (one collection per feed file) ─────────── */
+  async function loadRuns(){
+    let d = {runs:[], total_posts:0};
+    try { d = await fetch('/api/runs').then(r => r.json()); } catch (e) { return; }
+    const bar = $('#runbar');
+    if (!bar) return;
+    S.runs = d.runs || [];
+    const all = $('#runAll');
+    if (all) all.textContent = num(d.total_posts || 0);
+    const chip = r => {
+      const on = S.run === r.run;
+      const when = (r.last_iso || '').slice(5, 10).replace('-', '/');
+      const plat = (r.platforms || []).map(x => PLAT[x] || x).join(' + ');
+      return '<button type="button" class="runchip' + (on ? ' on' : '') + '" data-run="' + esc(r.run) + '"' +
+        ' aria-pressed="' + on + '" title="' + esc((r.queries || []).join(' · ') || r.label) + '">' +
+        '<span class="rl">' + esc(r.label) + '</span>' +
+        '<b>' + num(r.posts) + '</b>' +
+        '<span class="rmeta">' + esc(plat) + (when ? ' · ' + esc(when) : '') + '</span></button>';
+    };
+    bar.innerHTML = '<span class="runlabel">ชุดการค้นหา</span>' +
+      '<button type="button" class="runchip' + (S.run ? '' : ' on') + '" data-run="" aria-pressed="' + (!S.run) + '">' +
+        'ทุกชุด <b>' + num(d.total_posts || 0) + '</b><span class="rmeta">รวมทุกรอบ</span></button>' +
+      (S.runs.length ? S.runs.map(chip).join('') : '<span class="hint" style="margin-left:6px">ยังไม่มีชุดข้อมูล</span>');
+    bar.querySelectorAll('.runchip').forEach(b => b.addEventListener('click', () => {
+      S.run = b.dataset.run || '';
+      S.page = 1;
+      loadRuns(); loadPosts(); loadStats(); loadTrend(); loadIssues();
+    }));
+  }
+
   /* ── stats / hero / sentiment / authors / terms ─────────── */
   async function loadStats(){
-    const st = await fetch('/api/stats').then(r => r.json());
+    const st = await fetch('/api/stats' + (S.run ? '?run=' + encodeURIComponent(S.run) : '')).then(r => r.json());
     const pct = st.total ? Math.round(st.translated / st.total * 100) : 0;
     $('#ringArc').setAttribute('stroke-dashoffset', String(377 - 377 * pct / 100));
     $('#ringPct').textContent = pct + '%';
@@ -745,7 +795,8 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
 
   /* ── trend ──────────────────────────────────────────────── */
   async function loadTrend(){
-    const d = await fetch('/api/trend?gran=' + S.gran + '&days=7').then(r => r.json());
+    const d = await fetch('/api/trend?gran=' + S.gran + '&days=7'
+      + (S.run ? '&run=' + encodeURIComponent(S.run) : '')).then(r => r.json());
     S.trend = d;
     drawTrend(d);
   }
@@ -829,6 +880,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     const p = new URLSearchParams({days:'7', limit:'6'});
     if (S.platform) p.set('platform', S.platform);
     if (S.sentiment) p.set('sentiment', S.sentiment);
+    if (S.run) p.set('run', S.run);
     if (S.q) p.set('q', S.q);
     const d = await fetch('/api/issues?' + p).then(r => r.json());
     S.issues = d.issues || [];
@@ -975,7 +1027,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
 
   async function refresh(){
     try {
-      await Promise.all([loadStats(), loadTrend(), loadIssues(), loadPosts(), loadHealth()]);
+      await Promise.all([loadStats(), loadTrend(), loadIssues(), loadPosts(), loadHealth(), loadRuns()]);
       renderChips();
       $('#banner').classList.remove('on');
     } catch (e) {
