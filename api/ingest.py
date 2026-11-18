@@ -34,12 +34,44 @@ def _translations():
         return {}
 
 
-def _platform(name):
-    base = os.path.basename(name).lower()
-    for p in ('threads', 'facebook', 'fbfeed', 'tiktok'):
-        if base.startswith(p):
-            return 'facebook' if p == 'fbfeed' else p
-    return 'other'
+def _platform(name, url=''):
+    """Platform id from the shared registry (skill scripts), so every scraper counts."""
+    try:
+        if SKILL_SCRIPTS not in sys.path:
+            sys.path.insert(0, SKILL_SCRIPTS)
+        import platforms
+        pid = platforms.id_of(name, url)
+        return 'facebook' if pid == 'fbfeed' else pid
+    except Exception:
+        base = os.path.basename(name).lower()
+        for p in ('threads', 'facebook', 'fbfeed', 'tiktok'):
+            if base.startswith(p):
+                return 'facebook' if p == 'fbfeed' else p
+        return 'other'
+
+
+def _metrics(p):
+    """likes / replies / reposts / shares from any scraper's metric names."""
+    m = p.get('metrics') if isinstance(p.get('metrics'), dict) else {}
+
+    def pick(*keys):
+        for k in keys:
+            v = m.get(k)
+            if v in (None, ''):
+                v = p.get(k)
+            if v not in (None, ''):
+                return _num(v)
+        return 0
+
+    return (pick('likes', 'like_count', 'reactions', 'diggCount', 'favorite_count'),
+            pick('replies', 'comments', 'comment_count', 'commentCount', 'reply_count'),
+            pick('reposts', 'retweets', 'retweet_count'),
+            pick('shares', 'share_count', 'shareCount'))
+
+
+def _author(p):
+    return (p.get('user') or p.get('author') or p.get('nickname')
+            or p.get('username') or p.get('page') or '')
 
 
 def _num(v):
@@ -75,18 +107,18 @@ def ingest(project=PROJECT, verbose=False):
                     continue
                 text = (p.get('text') or '').strip()
                 th = (trans.get(_text_key(text)) or {}).get('th') or text
-                m = p.get('metrics') or {}
+                likes, replies, reposts, shares = _metrics(p)
                 row = (
-                    platform,
-                    p.get('user') or '',
+                    _platform(path, url),
+                    _author(p),
                     text,
                     th,
                     p.get('posted_at') or '',
                     p.get('posted_iso') or '',
-                    _num(m.get('likes')),
-                    _num(m.get('replies')),
-                    _num(m.get('reposts')),
-                    _num(m.get('shares')),
+                    likes,
+                    replies,
+                    reposts,
+                    shares,
                     1 if p.get('is_reply') else 0,
                     ','.join(p.get('queries') or []) if isinstance(p.get('queries'), list) else str(p.get('queries') or ''),
                     p.get('match') or '',
@@ -128,8 +160,9 @@ def ingest(project=PROJECT, verbose=False):
                            VALUES (?,?,?,?,?,?,?,?)
                            ON CONFLICT(id) DO UPDATE SET text_raw=excluded.text_raw, text_th=excluded.text_th,
                              likes=excluded.likes""",
-                        (curl, url, c.get('user') or '', ctext, cth, c.get('posted_iso') or '',
-                         _num((c.get('metrics') or {}).get('likes')), 1 if c.get('is_author') else 0),
+                        (curl, url, _author(c), ctext, cth, c.get('posted_iso') or '',
+                         _num((c.get('metrics') or {}).get('likes', c.get('likes'))),
+                         1 if c.get('is_author') else 0),
                     )
                     comments += 1
 

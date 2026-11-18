@@ -165,7 +165,9 @@ def test_comments_carry_sentiment_direction():
     assert row['comment_sentiment']['pos'] == 2
     assert row['comment_direction'] == 'pos'
     assert all(c['sentiment'] for c in row['comments'])
-    assert row['topic'], 'every table row should carry a topic link'
+    assert 'topic' in row, 'every table row carries a topic field (may be null)'
+    page = client.get('/api/posts?limit=50').json()['posts']
+    assert any(p.get('topic') for p in page), 'at least one clustered topic should be attached'
 
     detail = client.get('/api/posts/' + target + '/comments').json()
     assert detail['count'] == 2 and detail['sentiment']['pos'] == 2

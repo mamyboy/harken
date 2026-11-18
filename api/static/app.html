@@ -587,7 +587,9 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     neg: {n:'ลบ',   c:'neg',  e:'😠', arrow:'↘'},
     none:{n:'ยังไม่ระบุ', c:'none', e:'·', arrow:'–'}
   };
-  const PLAT = {threads:'Threads', facebook:'Facebook', tiktok:'TikTok', other:'อื่น ๆ'};
+  const PLAT = {threads:'Threads', facebook:'Facebook', fbfeed:'Facebook (ฟีด)', tiktok:'TikTok',
+                x:'X (Twitter)', twitter:'X (Twitter)', instagram:'Instagram', ig:'Instagram',
+                youtube:'YouTube', pantip:'Pantip', lemon8:'Lemon8', other:'อื่น ๆ'};
   const S = {q:'', platform:'', from:'', to:'', sort:'date', page:1, per:25, total:0,
              open:new Set(), gran:'day', trend:null, terms:[], sentiment:'', issues:[]};
   const num = v => (v === null || v === undefined || v === '') ? '0' : Number(v).toLocaleString('th-TH');
