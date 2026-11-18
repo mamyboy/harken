@@ -7,6 +7,7 @@ build/
 dist/
 .venv/
 venv/
+.venv-*/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
@@ -15,6 +16,11 @@ venv/
 *.db
 harken.db
 harken-demo.db
+logs/
+pipeline.log
+*.jsonl
+*.jsonl.meta.json
+threads_*.png
 
 # Env / secrets
 .env

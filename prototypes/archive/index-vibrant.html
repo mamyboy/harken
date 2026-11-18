@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Harken · Social Signal Console</title>
+<style>
+/* ── world: Vibrant Intelligence (DESIGN.md) ──────────────── */
+:root{
+  --navy:#111B38; --navy-2:#1B2850; --navy-ink:#C9D4F2;
+  --ice:#F5F8FF; --card:#FFFFFF;
+  --violet:#6D28D9; --violet-ink:#4C1D95; --violet-wash:#F1EAFF; --violet-line:#D9C8FF;
+  --cyan:#00B8E6; --cyan-wash:#E4F7FE; --cyan-ink:#00698A;
+  --coral:#FF6B6B; --coral-deep:#D6403F; --coral-wash:#FFEDED;
+  --ink:#131A2C; --ink-2:#3D4763; --muted:#5A6480;
+  --line:#E3E9F7; --line-2:#CDD7EE;
+  --pos:#0B6E43; --pos-wash:#E3F7EC; --neu:#8A5A00; --neu-wash:#FDF3DE; --neg:#B3261E; --neg-wash:#FBEAE9;
+  --sans:"IBM Plex Sans Thai","Noto Sans Thai",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --rail:232px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+::selection{background:#D9C8FF; color:var(--navy)}
+input{caret-color:var(--violet)}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:var(--ice)}
+::-webkit-scrollbar-thumb{background:#C4CFEA;border-radius:99px;border:3px solid var(--ice)}
+::-webkit-scrollbar-thumb:hover{background:#A8B6DA}
+body{font:15px/1.6 var(--sans); color:var(--ink); background:var(--ice); -webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+a{color:var(--violet-ink); text-decoration:none; underline-offset:2px}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--violet); outline-offset:2px; border-radius:6px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.hint{font-size:12px; color:var(--muted)}
+
+.app{display:grid; grid-template-columns:var(--rail) minmax(0,1fr); min-height:100vh}
+
+/* ── navy rail ────────────────────────────────────────────── */
+.rail{background:var(--navy); color:#EAF0FF; display:flex; flex-direction:column; gap:20px; padding:20px 14px; position:sticky; top:0; height:100vh}
+.brand{display:flex; align-items:center; gap:11px; padding:0 6px}
+.brand svg{flex:none}
+.brand .t1{font-weight:700; font-size:16px; line-height:1.2; letter-spacing:-.01em}
+.brand .t2{font-size:12px; color:var(--navy-ink); opacity:.8}
+.nav{display:flex; flex-direction:column; gap:3px}
+.nav a{
+  display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:10px;
+  color:var(--navy-ink); text-decoration:none; font-size:14.5px; font-weight:500;
+  transition:background .15s, color .15s;
+}
+.nav a svg{flex:none; opacity:.8}
+.nav a:hover{background:var(--navy-2); color:#fff; text-decoration:none}
+.nav a[aria-current="true"]{background:var(--violet); color:#fff}
+.nav a[aria-current="true"] svg{opacity:1}
+.rail-foot{margin-top:auto; display:flex; flex-direction:column; gap:10px}
+.src{border:1px solid var(--navy-2); background:rgba(255,255,255,.04); border-radius:10px; padding:10px 12px; font-size:12.5px}
+.src .row{display:flex; align-items:center; gap:8px; padding:3px 0; color:var(--navy-ink)}
+.src .row b{margin-left:auto; font-weight:500; color:#8FE3FF; font-size:11px; font-variant-numeric:tabular-nums}
+.src .row.off b{color:#FFB4B4}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--pos)}
+.dot.off{background:var(--coral)}
+.sync{border:1px solid var(--navy-2); background:rgba(255,255,255,.04); border-radius:10px; padding:10px 12px}
+.sync .row{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--navy-ink)}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--pos);flex:none;transition:background .3s}
+.pulse.stale{background:#FFC24B}
+.pulse.dead{background:var(--coral)}
+.sync .t{font-size:12px; color:var(--navy-ink); opacity:.75; margin-top:4px; font-variant-numeric:tabular-nums}
+
+/* ── main ─────────────────────────────────────────────────── */
+.main{min-width:0; display:flex; flex-direction:column; transition:padding-right .26s cubic-bezier(.2,.7,.3,1)}
+body.dr-on .main{padding-right:calc(min(440px,92vw) + 16px)}
+.topbar{
+  position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:13px 26px; background:rgba(245,248,255,.94); backdrop-filter:saturate(140%) blur(8px);
+  border-bottom:1px solid var(--line);
+}
+.headline{min-width:0}
+.headline h1{margin:0; font-size:24px; letter-spacing:-.025em; line-height:1.25; color:var(--navy)}
+.headline .stamp{font-size:12.5px; color:var(--muted); margin-top:2px}
+.headline .stamp b{font-weight:600; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.spacer{flex:1 1 auto}
+.search{
+  display:flex; align-items:center; gap:9px; min-width:220px; flex:0 1 320px;
+  background:var(--card); border:1px solid var(--line-2); border-radius:10px; padding:0 11px;
+  transition:border-color .14s, box-shadow .14s;
+}
+.search:focus-within{border-color:var(--violet); box-shadow:0 0 0 3px rgba(109,40,217,.14)}
+.search input{border:0; outline:0; background:transparent; font:inherit; color:var(--ink); padding:11px 0; width:100%; min-width:0}
+.search input::placeholder{color:var(--muted)}
+.kbd{font-size:11px; color:var(--muted); border:1px solid var(--line); background:var(--ice); border-radius:5px; padding:4px 6px; white-space:nowrap}
+.btn{
+  display:inline-flex; align-items:center; gap:7px; min-height:40px; padding:0 14px;
+  border-radius:10px; border:1px solid var(--line-2); background:var(--card); color:var(--ink);
+  font:600 13.5px var(--sans); cursor:pointer;
+  transition:background .15s, border-color .15s, transform .08s;
+}
+.btn:hover{border-color:var(--violet); background:var(--violet-wash)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.4; cursor:not-allowed}
+.btn-primary{background:var(--violet); border-color:var(--violet); color:#fff}
+.btn-primary:hover{background:var(--violet-ink); border-color:var(--violet-ink)}
+.btn-quiet{background:transparent; border-color:transparent; color:var(--muted)}
+.btn-quiet:hover{color:var(--ink); background:var(--card); border-color:var(--line)}
+.picker{display:flex; align-items:center; gap:7px; background:var(--card); border:1px solid var(--line-2); border-radius:10px; padding:0 9px}
+.picker label{font-size:12px; color:var(--muted); white-space:nowrap}
+.picker select{border:0; outline:0; background:transparent; font:inherit; font-size:14px; color:var(--ink); padding:10px 4px; min-width:0}
+.content{padding:18px 26px 70px; display:flex; flex-direction:column; gap:15px; max-width:1400px; width:100%}
+
+/* ── summary cards ────────────────────────────────────────── */
+.cards{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px}
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:14px; padding:15px 17px;
+  cursor:pointer; text-align:left; min-width:0; display:flex; flex-direction:column; align-items:stretch;
+  box-shadow:0 1px 2px rgba(60,64,75,.04);
+  transition:border-color .15s, box-shadow .15s, transform .12s, background .15s;
+}
+.card:hover{border-color:var(--violet-line); box-shadow:0 2px 6px rgba(60,64,75,.1), 0 12px 28px rgba(60,64,75,.1); transform:translateY(-1px)}
+.card[aria-pressed="true"]{border-color:var(--violet); background:var(--violet-wash)}
+.card .k{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted)}
+.card .k svg{flex:none}
+.card .v{font-size:29px; font-weight:700; letter-spacing:-.03em; line-height:1.2; color:var(--navy); margin-top:3px; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.card .d{font-size:12.5px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.card .delta{align-self:flex-start; font-size:12.5px; font-weight:600; border-radius:99px; padding:1px 9px; margin-top:7px; color:var(--violet-ink); background:var(--violet-wash)}
+.card .delta.up{color:var(--pos); background:var(--pos-wash)}
+.card.hot{background:linear-gradient(135deg,var(--violet),var(--cyan)); border-color:transparent; color:#fff; box-shadow:0 8px 24px rgba(60,64,75,.15)}
+.card.hot .k,.card.hot .d{color:rgba(255,255,255,.88)}
+.card.hot .v{color:#fff; font-size:23px; line-height:1.35}
+.card.hot .delta{background:rgba(255,255,255,.2); color:#fff}
+
+.chips{display:flex; gap:7px; flex-wrap:wrap; align-items:center}
+.chip{
+  display:inline-flex; align-items:center; gap:7px; min-height:30px; padding:3px 7px 3px 12px;
+  border-radius:99px; border:1px solid var(--violet-line); background:var(--violet-wash);
+  color:var(--violet-ink); font-size:12.5px; font-weight:500;
+}
+.chip button{border:0; background:transparent; color:var(--violet-ink); cursor:pointer; font-size:14px; line-height:1; padding:4px 5px; border-radius:99px}
+.chip button:hover{background:#D9C8FF}
+.banner{display:none; align-items:center; gap:10px; padding:11px 16px; border-radius:9px; background:var(--coral-wash); border:1px solid #FFD2D2; color:#8F2A28; font-size:13px}
+.banner.on{display:flex}
+
+/* ── panels ───────────────────────────────────────────────── */
+.panel{background:var(--card); border:1px solid var(--line); border-radius:14px; min-width:0}
+.panel-head{display:flex; align-items:center; gap:12px; padding:13px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap}
+.panel-head h2{margin:0; font-size:15px; font-weight:700; color:var(--navy)}
+.seg{display:flex; background:var(--ice); border:1px solid var(--line); border-radius:9px; padding:3px; margin-left:auto}
+.seg button{border:0; background:transparent; padding:5px 13px; border-radius:6px; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; min-height:30px}
+.seg button[aria-pressed="true"]{background:var(--violet); color:#fff}
+.legend{display:flex; gap:14px; align-items:center; font-size:12.5px; color:var(--muted)}
+.legend i{display:inline-block; width:14px; height:3px; border-radius:2px; margin-right:6px; vertical-align:middle}
+.grid-main{display:grid; grid-template-columns:minmax(0,2fr) minmax(280px,1fr); gap:15px; align-items:stretch}
+
+/* ── chart ────────────────────────────────────────────────── */
+.chartbox{padding:12px 14px 8px; position:relative}
+svg.line{display:block; width:100%; height:auto}
+.pt{cursor:pointer}
+.pt circle.hit{fill:transparent}
+.pt .core{opacity:0; transition:opacity .14s}
+.pt:hover .core,.pt:focus-visible .core{opacity:1}
+.pt:focus-visible{outline:none}
+.pt:focus-visible .ring{stroke:var(--violet); opacity:1}
+.gridline{stroke:var(--line); stroke-width:1}
+.axis-lab{font-size:12px; fill:var(--muted); font-variant-numeric:tabular-nums}
+.peak text.flag{font-size:12px; font-weight:600; fill:var(--coral-deep)}
+.chart-tip{
+  position:absolute; pointer-events:none; opacity:0; transform:translate(-50%,-115%);
+  background:var(--navy); color:#fff; font-size:12.5px; line-height:1.5; border-radius:9px;
+  padding:8px 11px; white-space:nowrap; transition:opacity .12s; z-index:5;
+  box-shadow:0 8px 24px rgba(60,64,75,.3);
+}
+.chart-tip.on{opacity:1}
+.chart-tip b{font-variant-numeric:tabular-nums}
+.chart-empty{padding:46px 20px; text-align:center; color:var(--muted)}
+.chart-empty b{display:block; color:var(--navy); font-size:15.5px; margin-bottom:4px}
+
+/* ── rising issues ────────────────────────────────────────── */
+.issues{display:flex; flex-direction:column; padding:7px 8px 11px}
+.issue{
+  display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:11px; align-items:center;
+  padding:10px 11px; border-radius:10px; border:0; background:transparent; cursor:pointer; text-align:left;
+  transition:background .13s;
+}
+.issue:hover{background:var(--violet-wash)}
+.issue .rank{font-size:12px; color:var(--muted); width:22px; font-variant-numeric:tabular-nums}
+.issue .nm{font-size:14px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.issue .meta{font-size:12px; color:var(--muted); margin-top:1px}
+.issue .chg{font-size:12.5px; font-weight:700; color:var(--pos); background:var(--pos-wash); border-radius:99px; padding:2px 9px; white-space:nowrap; font-variant-numeric:tabular-nums}
+.issue.cool .chg{color:var(--violet-ink); background:var(--violet-wash)}
+.issue[aria-pressed="true"]{background:var(--violet-wash); box-shadow:inset 3px 0 0 var(--violet)}
+.issue[aria-pressed="true"] .nm{color:var(--violet-ink)}
+.issue .meta.sub{font-size:11.5px; color:var(--muted); opacity:.85; margin-top:2px}
+.issue .meta.sub{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block}
+
+/* ── bars / ranks / terms ─────────────────────────────────── */
+.barline{display:grid; grid-template-columns:96px minmax(0,1fr) 78px; align-items:center; gap:10px; padding:6px 0;
+  border:0; background:transparent; font:inherit; text-align:left; width:100%; cursor:pointer; border-radius:7px}
+.barline:hover{background:var(--violet-wash)}
+.barline[aria-pressed="true"]{background:var(--violet-wash); box-shadow:inset 3px 0 0 var(--violet)}
+.barline[aria-pressed="true"] .lab{color:var(--violet-ink); font-weight:600}
+.barline .lab{font-size:13px; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.barline .track{height:9px; border-radius:99px; background:var(--ice); border:1px solid var(--line); overflow:hidden}
+.barline .fill{display:block; height:100%; border-radius:99px; background:var(--violet)}
+.barline .val{font-size:12px; color:var(--muted); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums}
+.barline.pos .fill{background:var(--pos)} .barline.neg .fill{background:var(--neg)}
+.barline.neu .fill{background:var(--neu)} .barline.none .fill{background:#AAB6CF}
+.rank{display:flex; flex-direction:column}
+.rank a{display:grid; grid-template-columns:22px minmax(0,1fr) auto; gap:9px; align-items:center; padding:8px 4px; border-bottom:1px dashed var(--line); color:var(--ink); font-size:13.5px}
+.rank a:last-child{border-bottom:0}
+.rank a:hover{text-decoration:none; background:var(--violet-wash); border-radius:6px}
+.rank .i{font-size:12px; color:var(--muted)}
+.rank .n{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.rank .e{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums}
+.grid-2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; align-items:start}
+
+/* ── table ────────────────────────────────────────────────── */
+.tablewrap{overflow-x:auto; min-width:0}
+table{width:100%; border-collapse:collapse}
+thead th{
+  position:sticky; top:0; background:var(--ice); z-index:2; text-align:left;
+  font-size:12px; font-weight:600; color:var(--muted); padding:10px 14px;
+  border-bottom:1px solid var(--line); white-space:nowrap;
+}
+thead th button{border:0; background:transparent; font:inherit; color:inherit; cursor:pointer; display:inline-flex; align-items:center; gap:5px; padding:0}
+thead th button:hover{color:var(--ink)}
+thead th[aria-sort="descending"] button{color:var(--violet-ink)}
+tbody td{padding:13px 14px; border-bottom:1px solid var(--line); vertical-align:top}
+tbody tr.row{cursor:pointer; transition:background .12s}
+tbody tr.row:hover{background:var(--violet-wash)}
+tbody tr.row[aria-expanded="true"]{background:var(--violet-wash)}
+.who{font-weight:600; font-size:13.5px; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px}
+.when{font-size:12px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums}
+.snip{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:14px; line-height:1.6; color:var(--ink-2); max-width:640px}
+.full{white-space:pre-wrap; word-break:break-word; font-size:14.5px; line-height:1.65; max-width:760px}
+mark{background:#FFE9A8; color:var(--ink); padding:0 2px; border-radius:3px}
+.tag{display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; border-radius:99px; padding:2px 8px; border:1px solid currentColor; white-space:nowrap}
+.tag.plat{color:var(--cyan-ink); background:var(--cyan-wash); border-color:#B9E9FA}
+.tag.pos{color:var(--pos)} .tag.neg{color:var(--neg)} .tag.neu{color:var(--neu)}
+.expand{display:flex; gap:8px; margin-top:9px; flex-wrap:wrap}
+.raw{margin-top:10px; padding:12px 14px; border-radius:9px; background:var(--ice); border:1px solid var(--line); color:var(--ink-2); font-size:13.5px; white-space:pre-wrap; word-break:break-word}
+.pager{display:flex; align-items:center; gap:10px; padding:12px 16px; border-top:1px solid var(--line); flex-wrap:wrap}
+.pager .info{font-size:12.5px; color:var(--muted); margin-right:auto; font-variant-numeric:tabular-nums}
+.skel{height:14px; border-radius:4px; background:linear-gradient(90deg,#EDF1FB 25%,#F8FAFF 37%,#EDF1FB 63%); background-size:400% 100%; animation:sh 1.3s ease infinite}
+@keyframes sh{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.empty{padding:42px 20px; text-align:center; color:var(--muted)}
+.empty b{display:block; color:var(--navy); font-size:15.5px; margin-bottom:5px}
+
+/* ── drawer (chart never occluded) ────────────────────────── */
+.drawer{
+  position:fixed; top:0; right:0; bottom:0; width:min(440px,92vw); z-index:70;
+  background:var(--card); border-left:1px solid var(--line);
+  box-shadow:-18px 0 48px rgba(60,64,75,.14);
+  transform:translateX(calc(100% + 24px)); transition:transform .26s cubic-bezier(.2,.7,.3,1);
+  display:flex; flex-direction:column;
+}
+.drawer.on{transform:none}
+.drawer header{display:flex; align-items:flex-start; gap:12px; padding:18px 20px 14px; border-bottom:1px solid var(--line)}
+.drawer header h3{margin:0; font-size:19px; color:var(--navy); letter-spacing:-.015em}
+.drawer header .sub{font-size:12.5px; color:var(--muted); margin-top:3px}
+.drawer .x{margin-left:auto}
+.dbody{padding:15px 20px 22px; overflow-y:auto; display:flex; flex-direction:column; gap:15px}
+.dsec h4{margin:0 0 8px; font-size:12px; font-weight:700; color:var(--muted); letter-spacing:.05em}
+.dstats{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px}
+.dstat{background:var(--ice); border:1px solid var(--line); border-radius:10px; padding:10px 12px}
+.dstat .k{font-size:12px; color:var(--muted)}
+.dstat .v{font-size:18px; font-weight:700; color:var(--navy); letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.platrow{display:grid; grid-template-columns:84px minmax(0,1fr) 40px; gap:9px; align-items:center; font-size:12.5px; color:var(--ink-2); padding:3px 0}
+.platrow .tr{height:8px; border-radius:99px; background:var(--ice); border:1px solid var(--line); overflow:hidden}
+.platrow .fi{display:block; height:100%; border-radius:99px; background:var(--violet)}
+.platrow .n{font-size:12px; text-align:right; color:var(--muted); font-variant-numeric:tabular-nums}
+.dpost{border:1px solid var(--line); border-radius:11px; padding:11px 13px; display:flex; flex-direction:column; gap:4px}
+.dpost + .dpost{margin-top:8px}
+.dpost .t{font-size:13px; color:var(--ink-2); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.dfoot{padding:13px 20px; border-top:1px solid var(--line); display:flex; gap:9px}
+.dfoot .btn{flex:1; justify-content:center}
+
+/* ── responsive ───────────────────────────────────────────── */
+@media (max-width:1200px){ .grid-main{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:1080px){ body.dr-on .main{padding-right:0} .cards{grid-template-columns:repeat(2,minmax(0,1fr))} .grid-2{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{position:sticky; height:auto; flex-direction:row; align-items:center; gap:12px; padding:10px 14px; overflow-x:auto}
+  .rail-foot{display:none}
+  .nav{flex-direction:row; gap:3px}
+  .nav a{padding:8px 11px; white-space:nowrap}
+  .nav a svg{display:none}
+  .brand .t2{display:none}
+  .content{padding:16px 16px 56px}
+  .topbar{padding:12px 16px}
+}
+@media (max-width:640px){
+  .headline h1{font-size:20px}
+  .search{flex:1 1 100%; order:3}
+  .cards{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .card .v{font-size:23px}
+  .barline{grid-template-columns:80px minmax(0,1fr) 54px}
+  .legend{display:none}
+  thead{display:none}
+  tbody tr.row{display:block; border-bottom:1px solid var(--line); padding:12px 14px}
+  tbody tr.row td{display:block; border:0; padding:0 0 7px}
+  tbody tr.row td:before{content:attr(data-l); display:block; font-size:12px; color:var(--muted); letter-spacing:.04em; margin-bottom:2px}
+  tbody tr.row td:last-child{padding-bottom:0}
+  .snip{max-width:none}
+  .drawer{width:100vw}
+}
+@media (max-width:560px){ .cards{grid-template-columns:minmax(0,1fr)} }
+@media (prefers-reduced-motion: reduce){
+  *,*:before,*:after{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="rail">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+        <rect width="28" height="28" rx="8" fill="#6D28D9"/>
+        <path d="M5.5 19 10 7.5l3.2 6.2L17 5l5.5 14" fill="none" stroke="#8FE3FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <div class="t1">Harken</div>
+        <div class="t2">Signal Console</div>
+      </div>
+    </div>
+
+    <nav class="nav" aria-label="เมนูหลัก">
+      <a href="#overview" aria-current="true">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="1.5" width="5.4" height="5.4" rx="1.4" stroke="currentColor" stroke-width="1.6"/><rect x="9.1" y="1.5" width="5.4" height="5.4" rx="1.4" stroke="currentColor" stroke-width="1.6"/><rect x="1.5" y="9.1" width="5.4" height="5.4" rx="1.4" stroke="currentColor" stroke-width="1.6"/><rect x="9.1" y="9.1" width="5.4" height="5.4" rx="1.4" stroke="currentColor" stroke-width="1.6"/></svg>
+        ภาพรวม</a>
+      <a href="#stream">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2" y="2.6" width="12" height="10.8" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M5 6.4h6M5 9.2h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        โพสต์ที่พบ</a>
+      <a href="#voices">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="5.5" r="2.6" stroke="currentColor" stroke-width="1.6"/><path d="M3 13c.8-2.2 2.7-3.4 5-3.4s4.2 1.2 5 3.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        ผู้โพสต์</a>
+      <a href="#terms">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8.5 2.5 6 9h4l-2 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        คำที่ถูกพูดถึง</a>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="src" id="srcbox" aria-label="สถานะแหล่งข้อมูล">
+        <div class="row"><span class="dot"></span>กำลังโหลด…</div>
+      </div>
+      <div class="sync">
+        <div class="row"><span class="pulse" id="pulse" aria-hidden="true"></span><span id="sync-label">เชื่อมต่อฐานข้อมูล</span></div>
+        <div class="t" id="sync-time">–</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="headline">
+        <h1>ภาพรวมสัญญาณสนทนา</h1>
+        <div class="stamp">ข้อมูลจริง · อัปเดตล่าสุด <b id="stamp">–</b> · โพลอัตโนมัติทุก 2 วิ</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="picker">
+        <label for="platSel">แพลตฟอร์ม</label>
+        <select id="platSel">
+          <option value="">ทุกแพลตฟอร์ม</option>
+          <option value="threads">Threads</option>
+          <option value="facebook">Facebook</option>
+          <option value="tiktok">TikTok</option>
+        </select>
+      </div>
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.6" stroke="#5A6480" stroke-width="1.6"/><path d="M10.6 10.6 14 14" stroke="#5A6480" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <label class="sr" for="q">ค้นหาข้อความหรือผู้โพสต์</label>
+        <input id="q" type="search" placeholder="ค้นหาข้อความ ผู้โพสต์ หรือแฮชแท็ก" autocomplete="off">
+        <span class="kbd" aria-hidden="true">/</span>
+      </div>
+      <button class="btn" id="export" type="button">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2v8m0 0 3-3m-3 3L5 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 12.5h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        CSV</button>
+    </div>
+
+    <div class="content">
+
+      <div class="banner" id="banner" role="alert">
+        <span id="banner-msg">เชื่อมต่อเซิร์ฟเวอร์ไม่ได้</span>
+        <button class="btn btn-quiet" id="retry" type="button">ลองอีกครั้ง</button>
+      </div>
+
+      <section class="cards" aria-label="สรุปตัวชี้วัด — คลิกการ์ดเพื่อกรอง">
+        <button class="card" id="cardTotal" type="button">
+          <span class="k"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 12V6.4m4 5.6V3m4 9V7.6m4 4.4V2" stroke="#6D28D9" stroke-width="1.8" stroke-linecap="round"/></svg>โพสต์ในระบบ</span>
+          <span class="v" id="k-total">–</span>
+          <span class="d" id="k-total-sub">–</span>
+          <span class="delta">คลิก = ล้างตัวกรอง</span>
+        </button>
+        <button class="card" id="cardTh" type="button">
+          <span class="k"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 4.5h6m-3 0v8m3-4.6c-.8 2.6-3 4.6-5.4 5.4" stroke="#00B8E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>แปลเป็นไทยแล้ว</span>
+          <span class="v" id="k-th">–</span>
+          <span class="d">โดยโมเดล beam-free</span>
+          <span class="delta up" id="k-th-d">–</span>
+        </button>
+        <button class="card" id="cardEng" type="button">
+          <span class="k"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13.6S2.2 10 2.2 5.9a3.1 3.1 0 0 1 5.8-1.1 3.1 3.1 0 0 1 5.8 1.1c0 4.1-5.8 7.7-5.8 7.7Z" stroke="#6D28D9" stroke-width="1.6" stroke-linejoin="round"/></svg>การมีส่วนร่วม (ไลก์)</span>
+          <span class="v" id="k-eng">–</span>
+          <span class="d" id="k-eng-sub">–</span>
+          <span class="delta" id="k-eng-d">คลิก = เรียงตามไลก์</span>
+        </button>
+        <button class="card hot" id="cardGrow" type="button">
+          <span class="k">คำที่โตเร็วที่สุด</span>
+          <span class="v" id="k-grow">–</span>
+          <span class="d" id="k-grow-sub">เทียบ 7 วันก่อนหน้า</span>
+          <span class="delta" id="k-grow-d">คลิกเพื่อค้นหา</span>
+        </button>
+      </section>
+
+      <div class="chips" id="chips" aria-live="polite"></div>
+
+      <div class="grid-main" id="overview">
+        <section class="panel" aria-label="แนวโน้มการโพสต์">
+          <div class="panel-head">
+            <h2>แนวโน้มการโพสต์</h2>
+            <div class="legend">
+              <span><i style="background:var(--violet)"></i>ช่วงนี้</span>
+              <span><i style="background:var(--cyan)"></i>ช่วงก่อนหน้า</span>
+              <span><i style="background:var(--coral);height:8px;width:8px;border-radius:50%"></i>จุดยอด — คลิก</span>
+            </div>
+            <div class="seg" role="group" aria-label="ความละเอียดเวลา">
+              <button type="button" id="segHour" aria-pressed="false">รายชั่วโมง</button>
+              <button type="button" id="segDay" aria-pressed="true">รายวัน</button>
+            </div>
+          </div>
+          <div class="chartbox">
+            <div id="chart"></div>
+            <div class="chart-tip" id="tip"></div>
+          </div>
+        </section>
+
+        <section class="panel" aria-label="คำที่กำลังมาแรง">
+          <div class="panel-head"><h2>คำที่กำลังมาแรง</h2><span class="hint" style="margin-left:auto">เทียบ 7 วันก่อนหน้า</span></div>
+          <div class="issues" id="issues"></div>
+        </section>
+      </div>
+
+      <div class="grid-2">
+        <section class="panel">
+          <div class="panel-head"><h2>อารมณ์ของบทสนทนา</h2>
+            <div class="seg" role="group" aria-label="กรองตามอารมณ์" style="margin-left:auto">
+              <button type="button" data-sent="pos" aria-pressed="false">บวก</button>
+              <button type="button" data-sent="neu" aria-pressed="false">กลาง</button>
+              <button type="button" data-sent="neg" aria-pressed="false">ลบ</button>
+            </div>
+          </div>
+          <div class="panel-body" id="sent" style="display:flex;flex-direction:column;gap:2px"></div>
+        </section>
+        <section class="panel" id="voices">
+          <div class="panel-head"><h2>ผู้โพสต์ที่มีอิทธิพล</h2><span class="hint" style="margin-left:auto">ตามการมีส่วนร่วม</span></div>
+          <div class="panel-body"><div class="rank" id="authors"></div></div>
+        </section>
+      </div>
+
+      <section class="panel" id="terms">
+        <div class="panel-head"><h2>คำที่ถูกพูดถึงบ่อย</h2><span class="hint" style="margin-left:auto">คลิกเพื่อค้นหา</span></div>
+        <div class="panel-body"><div id="termlist" style="display:flex;flex-wrap:wrap;gap:7px"></div></div>
+      </section>
+
+      <section class="panel" id="stream">
+        <div class="panel-head">
+          <h2>กระแสสนทนา</h2>
+          <span class="hint" id="count-hint" style="margin-left:auto">–</span>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <caption class="sr">รายการโพสต์ล่าสุดจากฐานข้อมูลจริง</caption>
+            <thead>
+              <tr>
+                <th scope="col" aria-sort="descending"><button type="button" data-sort="date">เวลา <span aria-hidden="true">↓</span></button></th>
+                <th scope="col">ผู้โพสต์ / แพลตฟอร์ม</th>
+                <th scope="col">ข้อความ</th>
+                <th scope="col"><button type="button" data-sort="likes">ไลก์</button></th>
+                <th scope="col"><span class="sr">ลิงก์</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows">
+              <tr><td colspan="5" style="padding:18px 14px"><div class="skel" style="width:60%;margin-bottom:10px"></div><div class="skel" style="width:85%"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <span class="info" id="page-info">–</span>
+          <label class="sr" for="per">จำนวนต่อหน้า</label>
+          <select id="per">
+            <option value="25">25 / หน้า</option>
+            <option value="50" selected>50 / หน้า</option>
+            <option value="100">100 / หน้า</option>
+          </select>
+          <button class="btn" id="prev" type="button">ก่อนหน้า</button>
+          <button class="btn" id="next" type="button">ถัดไป</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<aside class="drawer" id="drawer" role="dialog" aria-modal="false" aria-labelledby="dTitle" aria-hidden="true">
+  <header>
+    <div>
+      <h3 id="dTitle">–</h3>
+      <div class="sub" id="dSub">–</div>
+    </div>
+    <button class="btn btn-quiet x" id="dClose" type="button" aria-label="ปิดแผงรายละเอียด">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2.5 2.5l9 9m0-9-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+  <div class="dbody">
+    <div class="dsec"><h4>ช่วงเวลา</h4><div class="dstats" id="dStats"></div></div>
+    <div class="dsec"><h4>แพลตฟอร์มของโพสต์ในช่วงนี้</h4><div id="dPlat"></div></div>
+    <div class="dsec"><h4>โพสต์ในช่วงนี้</h4><div id="dPosts"></div></div>
+  </div>
+  <div class="dfoot">
+    <button class="btn btn-primary" id="dFilter" type="button">ดูโพสต์ช่วงนี้ในตาราง</button>
+  </div>
+</aside>
+
+<script>
+(function(){
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const num = n => new Intl.NumberFormat('th-TH').format(n || 0);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const escRx = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const SENT = {pos:{n:'บวก', c:'pos'}, neu:{n:'กลาง', c:'neu'}, neg:{n:'ลบ', c:'neg'}, none:{n:'ยังไม่ระบุ', c:'none'}};
+  const PLAT = {threads:'Threads', facebook:'Facebook', tiktok:'TikTok', other:'อื่น ๆ'};
+  const S = {q:'', platform:'', from:'', to:'', sort:'date', page:1, per:50, total:0,
+             open:new Set(), gran:'day', trend:null, terms:[], sentiment:''};
+  let rowsCache = '', lastFocus = null;
+
+  const timeFmt = new Intl.DateTimeFormat('th-TH', {timeZone:'Asia/Bangkok', day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit'});
+  const clock = iso => { const d = new Date(iso); return isNaN(d) ? (iso || '–').slice(0,16).replace('T',' ') : timeFmt.format(d); };
+
+  function qs(extra){
+    const p = new URLSearchParams();
+    if (S.q) p.set('q', S.q);
+    if (S.platform) p.set('platform', S.platform);
+    if (S.from) p.set('date_from', S.from);
+    if (S.to) p.set('date_to', S.to);
+    if (S.sentiment) p.set('sentiment', S.sentiment);
+    if (S.terms.length) p.set('terms', S.terms.join(','));
+    if (S.sort === 'likes') p.set('sort', 'likes');
+    p.set('limit', String(S.per));
+    p.set('offset', String((S.page - 1) * S.per));
+    if (extra) Object.entries(extra).forEach(([k, v]) => p.set(k, v));
+    return p.toString();
+  }
+
+  function highlight(text){
+    const safe = esc(text);
+    const words = []
+      .concat(S.q ? S.q.split(/\s+/) : [], S.terms)
+      .map(w => (w || '').replace(/^#/, ''))
+      .filter(w => w.length > 1);
+    if (!words.length) return safe;
+    return words.reduce((acc, w) => acc.replace(new RegExp(escRx(esc(w)), 'gi'), m => '<mark>' + m + '</mark>'), safe);
+  }
+
+  /* ── stats ──────────────────────────────────────────────── */
+  async function loadStats(){
+    const st = await fetch('/api/stats').then(r => r.json());
+
+    $('#k-total').textContent = num(st.total);
+    $('#k-total-sub').textContent = (st.by_platform || []).map(p => (PLAT[p.platform] || p.platform) + ' ' + num(p.n)).join(' · ') || 'ยังไม่มีโพสต์';
+    const pct = st.total ? Math.round(st.translated / st.total * 100) : 0;
+    $('#k-th').textContent = num(st.translated);
+    $('#k-th-d').textContent = pct + '% ของโพสต์ทั้งหมด';
+    const eng = st.engagement || {likes:0, replies:0, reposts:0};
+    $('#k-eng').textContent = num(eng.likes);
+    $('#k-eng-sub').textContent = 'ตอบ ' + num(eng.replies) + ' · รีโพสต์ ' + num(eng.reposts);
+
+    const have = new Set((st.by_platform || []).map(p => p.n > 0 && p.platform));
+    const rows = [['Threads', have.has('threads')], ['Facebook', have.has('facebook')], ['TikTok', have.has('tiktok')]];
+    $('#srcbox').innerHTML = rows.map(r =>
+      `<div class="row ${r[1]?'':'off'}"><span class="dot ${r[1]?'':'off'}"></span>${r[0]} <b>${r[1]?'มีข้อมูล':'ไม่มีข้อมูล'}</b></div>`).join('');
+
+    const sRows = st.by_sentiment || [];
+    const sTotal = Math.max(1, sRows.reduce((a, b) => a + b.n, 0));
+    const onlyNone = sRows.length === 1 && sRows[0].s === 'none';
+    $('#sent').innerHTML = onlyNone
+      ? '<div class="empty" style="padding:20px 8px"><b>ยังไม่ได้วิเคราะห์อารมณ์</b>ระบบจัดประเภทอัตโนมัติหลังแปลเสร็จ</div>'
+      : sRows.map(s => {
+        const m = SENT[s.s] || {n:s.s, c:'none'};
+        const p2 = Math.round(s.n / sTotal * 100);
+        const on = S.sentiment === s.s;
+        return `<button type="button" class="barline ${m.c}" data-sent="${esc(s.s)}" aria-pressed="${on}"><span class="lab">${esc(m.n)}</span>` +
+          `<span class="track"><span class="fill" style="width:${p2}%"></span></span>` +
+          `<span class="val">${num(s.n)} · ${p2}%</span></button>`;
+      }).join('');
+
+    $('#authors').innerHTML = (st.top_authors || []).map((a, i) =>
+      '<a href="#" data-author="' + esc(a.author) + '"><span class="i">' + String(i+1).padStart(2,'0') + '</span>' +
+      '<span class="n">@' + esc(a.author) + '</span><span class="e">' + num(a.eng) + '</span></a>'
+    ).join('') || '<span class="hint">ยังไม่มีข้อมูล</span>';
+
+    const terms = st.top_terms || [];
+    const selT = new Set(S.terms);
+    $('#termlist').innerHTML = terms.map(t =>
+      '<button class="chip" type="button" data-term="' + esc(t.term) + '" aria-pressed="' +
+      selT.has(t.term.replace(/^#/,'')) + '" style="cursor:pointer">' +
+      esc(t.term) + ' <b class="num" style="color:var(--muted);font-weight:500">' + num(t.n) + '</b></button>'
+    ).join('') || '<span class="hint">ยังไม่มีคำที่ถูกพูดถึงซ้ำ</span>';
+  }
+
+  /* ── trend ──────────────────────────────────────────────── */
+  async function loadTrend(){
+    const d = await fetch('/api/trend?gran=' + S.gran + '&days=7').then(r => r.json());
+    S.trend = d;
+    drawTrend(d);
+  }
+
+  function drawTrend(d){
+    if (!d.labels.length){
+      $('#chart').innerHTML = '<div class="chart-empty"><b>ยังไม่มีข้อมูลตามเวลา</b>โพสต์ในฐานข้อมูลยังไม่มีเวลาที่อ่านได้</div>';
+      return;
+    }
+    const W = 860, H = 280, X0 = 44, XR = W-16, Y0 = 30, Y1 = H-38;
+    const rawMax = Math.max(1, ...d.cur, ...d.prev);
+    const stepN = rawMax <= 6 ? rawMax : 4;
+    const tickStep = Math.ceil(rawMax / stepN);
+    const max = tickStep * stepN;
+    const xx = i => d.labels.length === 1 ? (X0+XR)/2 : X0 + i * ((XR - X0) / (d.labels.length - 1));
+    const y = v => Y1 - (v/max)*(Y1-Y0);
+    const line = a => a.map((v,i)=> (i?'L':'M') + xx(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+    const area = a => line(a) + ` L${xx(a.length-1)} ${Y1} L${xx(0)} ${Y1} Z`;
+    const peakIdx = d.cur.indexOf(Math.max(...d.cur));
+    const zeroPrev = d.prev.every(v => v === 0);
+
+    let grid = '';
+    const gn = stepN;
+    for (let g=0; g<=gn; g++){
+      const gy = Y0 + (Y1-Y0)*g/gn;
+      const val = Math.round(max*(1 - g/gn));
+      grid += `<line class="gridline" x1="${X0}" y1="${gy}" x2="${XR}" y2="${gy}"/>` +
+              `<text class="axis-lab" x="${X0-7}" y="${gy+4}" text-anchor="end">${num(val)}</text>`;
+    }
+    const step = d.labels.length > 12 ? 3 : 1;
+    const labs = d.labels.map((l,i)=> (i%step===0||i===d.labels.length-1)
+      ? `<text class="axis-lab" x="${xx(i)}" y="${Y1+22}" text-anchor="middle">${esc(l)}</text>` : '').join('');
+    const pts = d.cur.map((v,i)=>{
+      const isPeak = i===peakIdx && v > 0;
+      const peakY = y(v);
+      const flagY = peakY - 22 >= Y0 ? peakY - 22 : Math.min(Y1 - 8, peakY + 30);
+      const flagX = Math.min(Math.max(xx(i), X0 + 40), XR - 40);
+      return `<g class="pt ${isPeak?'peak':''}" data-i="${i}" tabindex="0" role="button"
+        aria-label="${esc(d.labels[i])} โพสต์ ${num(v)} รายการ${isPeak?' — จุดยอดสูงสุด':''}">
+        ${isPeak ? `<circle class="ring" cx="${xx(i)}" cy="${peakY}" r="13" fill="var(--coral-wash)" stroke="var(--coral)" stroke-width="1.6"/>
+        <text class="flag" x="${flagX}" y="${flagY}" text-anchor="middle">ยอดพุ่ง ${num(v)}</text>` : ''}
+        <circle class="core" cx="${xx(i)}" cy="${peakY}" r="${isPeak?5:4}" fill="${isPeak?'var(--coral)':'var(--violet)'}"/>
+        <circle cx="${xx(i)}" cy="${peakY}" r="14" class="hit"/>
+      </g>`;
+    }).join('');
+
+    $('#chart').innerHTML = `
+      <svg class="line" viewBox="0 0 ${W} ${H}" role="img" aria-label="กราฟแนวโน้มโพสต์จริง ${S.gran==='day'?'7 วัน':'24 ชั่วโมง'}">
+        <defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#6D28D9" stop-opacity=".13"/><stop offset="1" stop-color="#6D28D9" stop-opacity="0"/>
+        </linearGradient></defs>
+        ${grid}
+        <path d="${area(d.cur)}" fill="url(#fade)"/>
+        ${zeroPrev ? '' : `<path d="${line(d.prev)}" fill="none" stroke="var(--cyan)" stroke-width="2.2" stroke-dasharray="5 5" stroke-linecap="round"/>`}
+        <path d="${line(d.cur)}" fill="none" stroke="var(--violet)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        ${pts}${labs}
+      </svg>
+      ${zeroPrev ? '<div class="hint" style="margin-top:6px">ช่วงก่อนหน้า (เส้นปะฟ้า) ยังไม่มีข้อมูล — ฐานเปรียบเทียบจะเริ่มแสดงเมื่อมีโพสต์ย้อนหลังเกิน 7 วัน</div>' : ''}`;
+  }
+
+  const chartbox = $('.chartbox');
+  chartbox.addEventListener('mousemove', e => {
+    const pt = e.target.closest('.pt'); const tip = $('#tip');
+    if (!pt || !S.trend){ tip.classList.remove('on'); return; }
+    const i = +pt.dataset.i, d = S.trend;
+    tip.innerHTML = `<b>${esc(d.labels[i])}</b> · โพสต์ <b>${num(d.cur[i])}</b><br>ช่วงก่อน <b>${num(d.prev[i])}</b> · <span style="color:#8FE3FF">คลิกเพื่อดูเจาะจง</span>`;
+    const r = pt.getBoundingClientRect(), cr = chartbox.getBoundingClientRect();
+    tip.style.left = (r.left - cr.left + r.width/2) + 'px';
+    tip.style.top = (r.top - cr.top) + 'px';
+    tip.classList.add('on');
+  });
+  chartbox.addEventListener('mouseleave', () => $('#tip').classList.remove('on'));
+  chartbox.addEventListener('click', e => { const pt = e.target.closest('.pt'); if (pt) openPeak(+pt.dataset.i); });
+  chartbox.addEventListener('keydown', e => {
+    const pt = e.target.closest('.pt'); if (!pt) return;
+    if (e.key==='Enter'||e.key===' '){ e.preventDefault(); openPeak(+pt.dataset.i); }
+  });
+
+  /* ── drawer over real posts ─────────────────────────────── */
+  async function openPeak(i){
+    const d = S.trend; if (!d || !d.labels.length) return;
+    const iso = d.iso[i];
+    const day = iso.slice(0,10);
+    S.peak = i; drawTrend(d);
+    $('#dTitle').textContent = S.gran==='day' ? 'เจาะจง ' + dayLabel(day)
+      : 'เจาะจง ' + dayLabel(day) + ' เวลา ' + iso.slice(11,13) + ' น.';
+    $('#dSub').textContent = (S.gran==='day'?'รายวัน':'รายชั่วโมง') + ' · โพสต์ ' + num(d.cur[i]) + ' รายการ';
+    $('#dStats').innerHTML =
+      `<div class="dstat"><div class="k">โพสต์ช่วงนี้</div><div class="v">${num(d.cur[i])}</div></div>
+       <div class="dstat"><div class="k">ช่วงก่อนหน้า</div><div class="v">${num(d.prev[i])}</div></div>
+       <div class="dstat"><div class="k">เทียบทั้งช่วง</div><div class="v">${Math.round(d.cur[i]/Math.max(1,d.cur.reduce((a,b)=>a+b,0))*100)}%</div></div>`;
+    $('#dPlat').innerHTML = '<div class="hint">กำลังโหลดโพสต์จริง…</div>';
+    $('#dPosts').innerHTML = '<div style="padding:8px 0"><div class="skel" style="margin-bottom:8px"></div><div class="skel" style="width:80%"></div></div>';
+
+    const p = new URLSearchParams({date_from: day, date_to: day, limit: '100'});
+    if (S.q) p.set('q', S.q);
+    const res = await fetch('/api/posts?' + p).then(r => r.json());
+    const dayPosts = res.posts;
+    const byPlat = {};
+    dayPosts.forEach(x => { byPlat[x.platform] = (byPlat[x.platform] || 0) + 1; });
+    const mx = Math.max(1, ...Object.values(byPlat));
+    $('#dPlat').innerHTML = Object.keys(byPlat).length ? Object.entries(byPlat).map(([k, v]) =>
+      `<div class="platrow"><span>${esc(PLAT[k] || k)}</span>
+       <span class="tr"><span class="fi" style="width:${Math.round(v/mx*100)}%"></span></span>
+       <span class="n">${num(v)}</span></div>`).join('')
+      : '<div class="hint">ไม่พบโพสต์ของวันนี้</div>';
+    $('#dPosts').innerHTML = dayPosts.slice(0,3).map(x => {
+      const th = x.text_th || x.text_raw || '';
+      return `<div class="dpost"><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
+        <b style="font-size:13px;color:var(--navy)">@${esc(x.author)}</b>
+        <span class="when">${esc(clock(x.posted_iso))}</span>
+        <span class="tag plat">${esc(PLAT[x.platform]||x.platform)}</span></div>
+        <div class="t">${esc(th)}</div>
+        <div><a href="${esc(x.url)}" target="_blank" rel="noopener">เปิดโพสต์ต้นทาง ↗</a></div></div>`;
+    }).join('') || '<div class="hint">ไม่มีโพสต์ช่วงนี้</div>';
+    $('#dFilter').dataset.day = day;
+
+    $('#drawer').classList.add('on');
+    $('#drawer').setAttribute('aria-hidden','false');
+    document.body.classList.add('dr-on');
+    lastFocus = document.activeElement;
+    $('#dClose').focus();
+  }
+  const TH_MONTH = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  function dayLabel(iso){ return (+iso.slice(8,10)) + ' ' + TH_MONTH[+iso.slice(5,7)] + ' ' + (+iso.slice(0,4)+543); }
+  function closeDrawer(){
+    $('#drawer').classList.remove('on');
+    $('#drawer').setAttribute('aria-hidden','true');
+    document.body.classList.remove('dr-on');
+    S.peak = null; if (S.trend) drawTrend(S.trend);
+    if (lastFocus) lastFocus.focus();
+  }
+  $('#dClose').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if (e.key==='Escape' && $('#drawer').classList.contains('on')) closeDrawer(); });
+  $('#dFilter').addEventListener('click', () => {
+    const day = $('#dFilter').dataset.day;
+    if (day){ S.from = day; S.to = day; }
+    closeDrawer(); reset();
+  });
+
+  /* ── rising issues (topic clusters) ─────────────────────── */
+  let issuesCache = '';
+  async function loadIssues(){
+    const p = new URLSearchParams({days:'7', limit:'6'});
+    if (S.platform) p.set('platform', S.platform);
+    if (S.sentiment) p.set('sentiment', S.sentiment);
+    if (S.q) p.set('q', S.q);
+    const d = await fetch('/api/issues?' + p).then(r => r.json());
+    const sel = new Set(S.terms);
+    const html = d.issues.length ? d.issues.map((t,i)=>{
+      const on = sel.has(t.label);
+      const mix = SENT;
+      const bits = [];
+      if (t.top_author) bits.push('@' + t.top_author);
+      if (t.also && t.also.length) bits.push('รวม ' + t.also.slice(0,2).join(', '));
+      bits.push(`${num(t.sentiment.pos)} บวก · ${num(t.sentiment.neg)} ลบ`);
+      return `<button class="issue ${t.chg<=0?'cool':''}" type="button"
+          data-term="${esc(t.label)}" aria-pressed="${on}"
+          title="คลิกเพื่อกรองเฉพาะประเด็นนี้">
+        <span class="rank">${String(i+1).padStart(2,'0')}</span>
+        <span style="min-width:0"><span class="nm">${esc(t.label)}</span>
+        <span class="meta">${num(t.n_posts)} โพสต์ · ก่อนหน้า ${num(t.prev_posts)}</span>
+        <span class="meta sub">${esc(bits.join(' · '))}</span></span>
+        <span class="chg">${t.chg>0?'+':''}${num(t.chg)}</span>
+      </button>`;
+    }).join('')
+      : '<div class="empty" style="padding:20px 12px"><b>ยังไม่มีประเด็นให้จัดกลุ่ม</b>ต้องมีโพสต์ที่มีคำซ้ำอย่างน้อย 2 ครั้งใน 7 วัน</div>';
+    if (html !== issuesCache){ issuesCache = html; $('#issues').innerHTML = html; }
+
+    const top = d.issues[0];
+    if (top){
+      $('#k-grow').textContent = '“' + top.label.replace(/^#/,'') + '”';
+      $('#k-grow-sub').textContent = `${num(top.prev_posts)} → ${num(top.n_posts)} โพสต์ ใน 7 วัน`;
+      $('#k-grow-d').textContent = (top.chg>0?'+':'') + num(top.chg) + ' · คลิกเพื่อกรอง';
+      $('#cardGrow').dataset.term = top.label;
+    } else {
+      $('#k-grow').textContent = '–';
+      $('#k-grow-d').textContent = 'ยังไม่มีข้อมูลเปรียบเทียบ';
+      $('#cardGrow').dataset.term = '';
+    }
+  }
+
+  function toggleTerm(term){
+    const t = (term || '').replace(/^#/, '');
+    if (!t) return;
+    const i = S.terms.indexOf(t);
+    if (i >= 0) S.terms.splice(i, 1);
+    else { if (S.terms.length >= 4) S.terms.shift(); S.terms.push(t); }
+    S.q = ''; $('#q').value = '';
+    reset();
+  }
+  $('#cardGrow').addEventListener('click', () => toggleTerm($('#cardGrow').dataset.term));
+  $('#issues').addEventListener('click', e => {
+    const b = e.target.closest('[data-term]'); if(!b) return;
+    toggleTerm(b.dataset.term);
+  });
+  $('#termlist').addEventListener('click', e => {
+    const b = e.target.closest('[data-term]'); if(!b) return;
+    toggleTerm(b.dataset.term);
+  });
+  /* sentiment filter from the emotion panel */
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-sent]'); if(!b) return;
+    const v = b.dataset.sent;
+    S.sentiment = (S.sentiment === v) ? '' : v;
+    document.querySelectorAll('[data-sent]').forEach(x =>
+      x.setAttribute('aria-pressed', String(x.dataset.sent === S.sentiment)));
+    reset();
+  });
+
+  /* ── posts table ────────────────────────────────────────── */
+  async function loadPosts(){
+    const d = await fetch('/api/posts?' + qs()).then(r => r.json());
+    S.total = d.total;
+    const from = d.total ? (S.page - 1) * S.per + 1 : 0;
+    const to = Math.min(d.total, from + d.posts.length - 1);
+    $('#count-hint').textContent = d.total ? num(from) + '–' + num(to) + ' จาก ' + num(d.total) + ' โพสต์จริง' : 'ไม่มีรายการ';
+    $('#page-info').textContent = 'หน้า ' + S.page + ' · ' + num(d.total) + ' รายการ';
+    $('#prev').disabled = S.page <= 1;
+    $('#next').disabled = S.page * S.per >= d.total;
+
+    const html = d.posts.length ? d.posts.map(p => {
+      const open = S.open.has(p.url);
+      const th = p.text_th || p.text_raw || '';
+      const sent = SENT[p.sentiment] || null;
+      return '<tr class="row" data-url="' + esc(p.url) + '" aria-expanded="' + open + '" tabindex="0">' +
+        '<td data-l="เวลา"><span class="when">' + esc(clock(p.posted_iso)) + '</span></td>' +
+        '<td data-l="ผู้โพสต์"><div class="who">@' + esc(p.author) + '</div>' +
+          '<div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">' +
+          '<span class="tag plat">' + esc(PLAT[p.platform] || p.platform) + '</span>' +
+          (sent ? '<span class="tag ' + sent.c + '">' + esc(sent.n) + '</span>' : '') +
+          '</div></td>' +
+        '<td data-l="ข้อความ">' + (open
+          ? '<div class="full">' + highlight(th) + '</div>' +
+            ((p.text_th && p.text_th !== p.text_raw)
+              ? '<div class="expand"><button class="btn" type="button" data-raw="' + esc(p.url) + '" aria-expanded="false">แสดงข้อความต้นฉบับ</button></div>' +
+                '<div class="raw" hidden>' + esc(p.text_raw) + '</div>'
+              : '')
+          : '<div class="snip">' + highlight(th) + '</div>') + '</td>' +
+        '<td data-l="ไลก์"><span class="num" style="color:var(--muted)">' + num(p.likes) + '</span></td>' +
+        '<td data-l="ลิงก์"><a href="' + esc(p.url) + '" target="_blank" rel="noopener" data-stop="1">เปิด ↗</a></td>' +
+      '</tr>';
+    }).join('') : '<tr><td colspan="5"><div class="empty"><b>ไม่พบโพสต์ที่ตรงกับเงื่อนไข</b>ลองล้างตัวกรอง หรือใช้คำค้นที่สั้นลง</div></td></tr>';
+
+    if (html !== rowsCache){ rowsCache = html; $('#rows').innerHTML = html; }
+  }
+
+  /* ── chips ──────────────────────────────────────────────── */
+  function renderChips(){
+    const items = [];
+    if (S.q) items.push(['ค้นหา: ' + S.q, () => { S.q = ''; $('#q').value = ''; }]);
+    S.terms.forEach(t => items.push(['ประเด็น: ' + t, () => { S.terms = S.terms.filter(x => x !== t); }]));
+    if (S.sentiment) items.push(['อารมณ์: ' + (SENT[S.sentiment] || {n:S.sentiment}).n,
+      () => { S.sentiment = ''; document.querySelectorAll('[data-sent]').forEach(x => x.setAttribute('aria-pressed','false')); }]);
+    if (S.platform) items.push(['แพลตฟอร์ม: ' + (PLAT[S.platform]||S.platform), () => { S.platform = ''; $('#platSel').value = ''; }]);
+    if (S.from || S.to) items.push(['ช่วงเวลา: ' + (S.from||'…') + ' → ' + (S.to||'…'), () => { S.from=''; S.to=''; }]);
+    $('#chips').innerHTML = items.length
+      ? items.map((it,i)=> '<span class="chip">' + esc(it[0]) + '<button type="button" data-chip="' + i + '" aria-label="ลบตัวกรอง">×</button></span>').join('')
+        + '<button class="btn btn-quiet" type="button" id="clear-all" style="min-height:30px">ล้างทั้งหมด</button>'
+      : '<span class="hint">แสดงโพสต์จริงทั้งหมด — ยังไม่มีการกรอง</span>';
+    window.__chips = items;
+  }
+
+  /* ── health ─────────────────────────────────────────────── */
+  async function loadHealth(){
+    const h = await fetch('/api/health').then(r => r.json());
+    $('#stamp').textContent = new Date().toLocaleTimeString('th-TH', {timeZone:'Asia/Bangkok'});
+    if (h.last_ingest && h.last_ingest.at){
+      const ago = Math.round((Date.now() - new Date(h.last_ingest.at).getTime())/1000);
+      if (ago > 900){
+        $('#pulse').className = 'pulse stale';
+        $('#sync-label').textContent = 'ฐานข้อมูลเงียบ >15 นาที';
+      }
+    }
+  }
+
+  async function refresh(){
+    try {
+      await Promise.all([loadStats(), loadTrend(), loadIssues(), loadPosts(), loadHealth()]);
+      $('#sync-time').textContent = 'ซิงก์ล่าสุด ' + new Date().toLocaleTimeString('th-TH', {timeZone:'Asia/Bangkok'});
+      $('#banner').classList.remove('on');
+      $('#pulse').className = 'pulse';
+      $('#sync-label').textContent = 'เชื่อมต่อฐานข้อมูล';
+      renderChips();
+    } catch (e) {
+      $('#banner').classList.add('on');
+      $('#banner-msg').textContent = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ' + e.message;
+      $('#pulse').className = 'pulse dead';
+      $('#sync-time').textContent = 'ขาดการเชื่อมต่อ · ลองใหม่ทุก 2 วิ';
+    }
+  }
+
+  function reset(){ S.page = 1; refresh(); }
+
+  /* ── controls ───────────────────────────────────────────── */
+  let typing;
+  $('#q').addEventListener('input', e => {
+    clearTimeout(typing);
+    typing = setTimeout(() => { S.q = e.target.value.trim(); reset(); }, 260);
+  });
+  $('#platSel').addEventListener('change', e => { S.platform = e.target.value; reset(); });
+
+  $('#cardTotal').addEventListener('click', () => { S.q=''; S.platform=''; S.from=''; S.to=''; S.terms=[]; S.sentiment='';
+    $('#q').value=''; $('#platSel').value='';
+    document.querySelectorAll('[data-sent]').forEach(x => x.setAttribute('aria-pressed','false'));
+    reset(); });
+  $('#cardEng').addEventListener('click', () => {
+    S.sort = S.sort==='likes' ? 'date' : 'likes';
+    $('#k-eng-d').textContent = S.sort==='likes' ? 'กำลังเรียงตามไลก์ — คลิกเพื่อกลับ' : 'คลิก = เรียงตามไลก์';
+    reset();
+  });
+  $('#cardTh').addEventListener('click', () => {
+    document.querySelector('#stream').scrollIntoView({behavior:'smooth', block:'start'});
+  });
+
+  $('#segDay').addEventListener('click', () => { S.gran='day'; setSeg(); loadTrend(); });
+  $('#segHour').addEventListener('click', () => { S.gran='hour'; setSeg(); loadTrend(); });
+  function setSeg(){ $('#segDay').setAttribute('aria-pressed', String(S.gran==='day')); $('#segHour').setAttribute('aria-pressed', String(S.gran==='hour')); }
+
+  $('#rows').addEventListener('click', e => {
+    if (e.target.closest('[data-stop]')) return;
+    const rawBtn = e.target.closest('[data-raw]');
+    if (rawBtn){
+      const box = rawBtn.closest('td').querySelector('.raw');
+      if (box){
+        box.hidden = !box.hidden;
+        rawBtn.setAttribute('aria-expanded', String(!box.hidden));
+        rawBtn.textContent = box.hidden ? 'แสดงข้อความต้นฉบับ' : 'ซ่อนข้อความต้นฉบับ';
+      }
+      e.stopPropagation(); return;
+    }
+    const row = e.target.closest('tr.row');
+    if (!row) return;
+    S.open.has(row.dataset.url) ? S.open.delete(row.dataset.url) : S.open.add(row.dataset.url);
+    loadPosts();
+  });
+  $('#rows').addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.target.closest('a, button')) return;
+    const row = e.target.closest('tr.row'); if (!row) return;
+    e.preventDefault(); row.click();
+  });
+
+  $('#authors').addEventListener('click', e => {
+    const a = e.target.closest('[data-author]'); if(!a) return;
+    e.preventDefault(); S.q = a.dataset.author; $('#q').value = S.q; reset();
+  });
+  $('#chips').addEventListener('click', e => {
+    if (e.target.id === 'clear-all'){ S.q=''; S.platform=''; S.from=''; S.to=''; S.terms=[]; S.sentiment='';
+      $('#q').value=''; $('#platSel').value='';
+      document.querySelectorAll('[data-sent]').forEach(x => x.setAttribute('aria-pressed','false'));
+      reset(); return; }
+    const b = e.target.closest('[data-chip]'); if(!b) return;
+    const fn = (window.__chips||[])[Number(b.dataset.chip)]; if (fn){ fn(); reset(); }
+  });
+
+  document.querySelectorAll('thead [data-sort]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      S.sort = btn.dataset.sort === 'likes' ? 'likes' : 'date';
+      document.querySelectorAll('thead th').forEach(th => th.setAttribute('aria-sort','none'));
+      btn.closest('th').setAttribute('aria-sort','descending');
+      reset();
+    });
+  });
+
+  $('#per').addEventListener('change', e => { S.per = Number(e.target.value); reset(); });
+  $('#prev').addEventListener('click', () => { S.page = Math.max(1, S.page-1); reset(); });
+  $('#next').addEventListener('click', () => { if (S.total && S.page*S.per < S.total){ S.page++; refresh(); } });
+  $('#export').addEventListener('click', () => { window.location = '/api/export.csv?' + qs(); });
+  $('#retry').addEventListener('click', refresh);
+
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement !== $('#q')){ e.preventDefault(); $('#q').focus(); }
+    if (e.key === 'Escape' && document.activeElement === $('#q')){ $('#q').value=''; S.q=''; reset(); $('#q').blur(); }
+  });
+
+  refresh();
+  setInterval(() => { if (document.activeElement !== $('#q') && !document.hidden) refresh(); }, 2000);
+})();
+</script>
+</body>
+</html>
