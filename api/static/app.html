@@ -576,7 +576,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
 
       <section class="card" aria-label="องค์ประกอบประเด็น">
         <div class="card-head"><h2>ประเด็นที่ถูกพูดถึง</h2>
-          <span class="hint">จำนวนโพสต์ใน 7 วันล่าสุด</span></div>
+          <span class="hint" id="issuesWindow">จำนวนโพสต์ใน 7 วันล่าสุด</span></div>
         <div class="card-body">
           <div class="radar-wrap">
             <div class="radar" id="radar"></div>
@@ -1400,6 +1400,7 @@ async function loadNews(append){
     if (S.q) p.set('q', S.q);
     const d = await fetch('/api/issues?' + p).then(r => r.json());
     S.issues = d.issues || [];
+    S.issuesDays = (d && d.window_days) || 7;
     const sel = new Set(S.terms);
     const top = Math.max(1, ...S.issues.map(i => i.n_posts));
     const html = S.issues.length ? S.issues.map((t, i) => {
@@ -1418,6 +1419,8 @@ async function loadNews(append){
     }).join('')
       : '<div class="empty"><b>ยังไม่มีประเด็นให้จัดกลุ่ม</b>ต้องมีคำที่ถูกพูดถึงซ้ำอย่างน้อย 2 โพสต์ใน 7 วัน</div>';
     if (html !== issuesCache){ issuesCache = html; $('#issues').innerHTML = html; }
+    const iw = $('#issuesWindow');
+    if (iw) iw.textContent = 'จำนวนโพสต์ใน ' + num(S.issuesDays || 7) + ' วันล่าสุด';
     drawRadar(S.issues);
     const hi = $('#heroIssues'); if (hi) hi.textContent = num(S.issues.length);
 
