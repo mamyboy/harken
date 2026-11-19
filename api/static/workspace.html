@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>โซนคำค้น · SatunEcho</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/sl.css">
+</head>
+<body>
+<div class="shell">
+
+  <nav class="topnav">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 64 64"><path fill="#fff" fill-rule="evenodd" d="M22 11C13.7 11 7 17.7 7 26c0 10.8 9.7 21.8 13.1 25.3a2.6 2.6 0 0 0 3.8 0C27.3 47.8 37 36.8 37 26c0-8.3-6.7-15-15-15ZM22 17a8 8 0 1 0 0 16 8 8 0 1 0 0-16Z"/><circle cx="22" cy="25" r="4" fill="#FF6B6B"/><path d="M40 17a17 17 0 0 1 0 16" fill="none" stroke="#C4B5FD" stroke-width="5" stroke-linecap="round"/><path d="M48 10a28 28 0 0 1 0 30" fill="none" stroke="#7DD3FC" stroke-width="5" stroke-linecap="round"/></svg>
+      </span>
+      <div>
+        <h1>SatunEcho · Harken</h1>
+        <div class="sub">Social Listening — โซนคำค้น</div>
+      </div>
+    </div>
+    <div class="navspace"></div>
+    <div class="navlinks">
+      <span class="pill" style="margin-right:4px"><span class="dot" id="liveDot"></span><span id="stamp">—</span></span>
+      <div class="picker" style="background:#fff">
+        <label for="zoneSel">โซน</label>
+        <select id="zoneSel"><option value="">กำลังโหลด…</option></select>
+      </div>
+      <a class="navlink" href="/">ภาพรวม</a>
+      <a class="navlink" href="/tools">เครื่องมือ</a>
+    </div>
+  </nav>
+
+  <div class="banner" id="banner" role="alert">
+    <span id="bannerMsg">เชื่อมต่อเซิร์ฟเวอร์ไม่ได้</span>
+    <button class="btn" type="button" id="retry" style="margin-left:auto">ลองอีกครั้ง</button>
+  </div>
+
+  <!-- ── zone identity ──────────────────────────────────── -->
+  <header class="zonehero" id="zoneHero">
+    <a class="zh-back" href="/">← กลับภาพรวม</a>
+    <div class="zh-main">
+      <div class="zh-kicker">โซนคำค้น</div>
+      <h2 id="zhLabel">—</h2>
+      <div class="zh-plats" id="zhPlats"></div>
+      <div class="zh-note" id="zhNote">หน้านี้แสดงเฉพาะโซนนี้ · หน้าแรกแสดงภาพรวมทุกโซน</div>
+    </div>
+  </header>
+
+  <!-- ── filters ────────────────────────────────────────── -->
+  <div class="filters" id="filters" style="margin-top:14px">
+    <span class="fl">กรองในโซนนี้</span>
+    <div class="search">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.6" stroke="#8C99B4" stroke-width="1.6"/><path d="M10.6 10.6 14 14" stroke="#8C99B4" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <label class="sr" for="q">ค้นหาในโซน</label>
+      <input id="q" type="search" placeholder="ข้อความ ผู้โพสต์ แฮชแท็ก" autocomplete="off">
+    </div>
+    <div class="picker">
+      <label for="platSel">แพลตฟอร์ม</label>
+      <select id="platSel"><option value="">ทั้งหมด</option><option value="tiktok">TikTok</option><option value="facebook">Facebook</option><option value="threads">Threads</option></select>
+    </div>
+    <div class="picker">
+      <label for="sentSel">อารมณ์</label>
+      <select id="sentSel"><option value="">ทั้งหมด</option><option value="pos">บวก</option><option value="neu">กลาง</option><option value="neg">ลบ</option></select>
+    </div>
+    <div class="picker">
+      <label for="dFrom">ตั้งแต่</label>
+      <input id="dFrom" type="date" style="border:0;outline:0;background:transparent;font:inherit;font-size:12.5px;padding:9px 2px;color:var(--ink)">
+    </div>
+    <div class="picker">
+      <label for="dTo">ถึง</label>
+      <input id="dTo" type="date" style="border:0;outline:0;background:transparent;font:inherit;font-size:12.5px;padding:9px 2px;color:var(--ink)">
+    </div>
+    <div class="picker">
+      <label for="sortSel">เรียง</label>
+      <select id="sortSel"><option value="date">ใหม่สุด</option><option value="likes">ไลก์มากสุด</option></select>
+    </div>
+    <button class="btn" type="button" id="noiseToggle" aria-pressed="false" title="โพสต์ที่ระบบตัดสินว่าเป็นโฆษณา/ไม่เกี่ยวข้อง">รวมโพสต์ที่ซ่อน <b id="noiseCount" class="num">—</b></button>
+    <button class="btn" type="button" id="export">CSV ตามตัวกรอง</button>
+    <div class="chips" id="chips" style="flex:1 1 100%"></div>
+  </div>
+
+  <!-- ── SECTION 1 · สรุปโซน ─────────────────────────────── -->
+  <div class="section">
+    <span class="tag">ส่วนที่ 1</span>
+    <h2>สรุปภาพรวมของโซนนี้</h2>
+    <span class="say" id="winSay">—</span>
+  </div>
+
+  <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+    <div class="kpi"><div class="k">โพสต์ในโซน</div><span class="v num" id="kPosts">—</span><div class="f" id="kPostsF">—</div><div class="spark" id="sPosts"></div></div>
+    <div class="kpi"><div class="k">คอมเมนต์</div><span class="v num" id="kComments">—</span><div class="f" id="kCommentsF">—</div></div>
+    <div class="kpi"><div class="k">การมีส่วนร่วม</div><span class="v num" id="kEng">—</span><div class="f" id="kEngF">—</div></div>
+  </div>
+
+  <div class="grid-main" style="margin-top:14px">
+    <section class="card lift" aria-label="แนวโน้มของโซน">
+      <div class="card-head"><h2>แนวโน้มของโซนนี้</h2>
+        <span class="hint" id="trendHint">—</span></div>
+      <div class="card-body"><div class="chartslot" id="chartTrend"></div></div>
+    </section>
+    <div class="stack">
+      <section class="card lift" aria-label="อารมณ์ของโพสต์">
+        <div class="card-head"><h2>อารมณ์ของโพสต์</h2><span class="hint" id="sentHint">—</span></div>
+        <div class="card-body"><div class="bars" id="sentBars"></div></div>
+      </section>
+      <section class="card lift" aria-label="แพลตฟอร์มในโซน">
+        <div class="card-head"><h2>แพลตฟอร์มในโซน</h2><span class="hint">—</span></div>
+        <div class="card-body"><div id="chartDonut"></div></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ── SECTION 2 · โพสต์ ──────────────────────────────── -->
+  <div class="section" id="postsSec">
+    <span class="tag">ส่วนที่ 2</span>
+    <h2>กระแสโพสต์ในโซนนี้</h2>
+    <span class="say" id="countHint">—</span>
+  </div>
+
+  <section class="card lift" aria-label="ตารางโพสต์">
+    <div class="tablewrap">
+      <table>
+        <caption class="sr">โพสต์ในโซนคำค้นนี้</caption>
+        <thead><tr>
+          <th scope="col">เวลา</th><th scope="col">ผู้โพสต์ / แพลตฟอร์ม</th><th scope="col">ข้อความ</th>
+          <th scope="col">ตัวชี้วัด</th><th scope="col">คอมเมนต์ / ทิศทาง</th><th scope="col"><span class="sr">เปิด</span></th>
+        </tr></thead>
+        <tbody id="rows"><tr><td colspan="6" style="padding:16px"><div class="skel" style="width:58%;margin-bottom:9px"></div><div class="skel" style="width:84%"></div></td></tr></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <span class="info" id="pageInfo">—</span>
+      <label class="sr" for="per">จำนวนต่อหน้า</label>
+      <select id="per"><option value="10">10 / หน้า</option><option value="25" selected>25 / หน้า</option><option value="50">50 / หน้า</option></select>
+      <button class="btn" id="prev" type="button">ก่อนหน้า</button>
+      <button class="btn" id="next" type="button">ถัดไป</button>
+    </div>
+  </section>
+
+  <!-- ── SECTION 3 · คอมเมนต์ ───────────────────────────── -->
+  <div class="section" id="commentsSec">
+    <span class="tag">ส่วนที่ 3</span>
+    <h2>คอมเมนต์และปฏิกิริยา</h2>
+    <span class="say" id="cmSay">แยกจากตัวเลขโพสต์ — นี่คือเสียงของคนอ่าน</span>
+  </div>
+
+  <div class="kpis" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px">
+    <div class="kpi"><div class="k">คอมเมนต์ที่เก็บได้</div><span class="v num" id="cmTotal">—</span><div class="f" id="cmTotalF">—</div></div>
+    <div class="kpi"><div class="k">โพสต์ที่มีคอมเมนต์</div><span class="v num" id="cmPosts">—</span><div class="f" id="cmPostsF">—</div></div>
+  </div>
+
+  <div class="grid-2" style="margin-top:14px">
+    <section class="card lift" aria-label="อารมณ์ของคอมเมนต์">
+      <div class="card-head"><h2>อารมณ์ของคอมเมนต์</h2><span class="hint" id="cmMixHint">—</span></div>
+      <div class="card-body">
+        <div class="bars" id="cmBars"></div>
+      </div>
+    </section>
+    <section class="card lift" aria-label="สาระจากคอมเมนต์">
+      <div class="card-head"><h2>สาระจากคอมเมนต์</h2><span class="hint" id="sumMeta">—</span></div>
+      <div class="card-body">
+        <div class="sumlist" id="sumList"><div class="empty">ยังไม่มีคอมเมนต์ให้สรุป</div></div>
+        <div class="themebar" id="sumThemes"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="grid-2" style="margin-top:14px">
+    <section class="card lift" aria-label="คนที่คอมเมนต์มากที่สุด">
+      <div class="card-head"><h2>คนที่คอมเมนต์มากที่สุด</h2><span class="hint">เรียงตามจำนวน · ไลก์</span></div>
+      <div class="card-body"><div id="cmPeople"><div class="empty">—</div></div></div>
+    </section>
+    <section class="card lift" aria-label="โพสต์ที่ถูกคอมเมนต์มากที่สุด">
+      <div class="card-head"><h2>โพสต์ที่ถูกคอมเมนต์มากที่สุด</h2><span class="hint">คลิกเพื่อเปิดโพสต์</span></div>
+      <div class="card-body"><div id="cmPerPost"><div class="empty">—</div></div></div>
+    </section>
+  </div>
+
+  <section class="card lift" style="margin-top:14px" aria-label="คำในคอมเมนต์">
+    <div class="card-head"><h2>คำที่พูดถึงในคอมเมนต์</h2><span class="hint">ความถี่ในเนื้อคอมเมนต์เท่านั้น</span></div>
+    <div class="card-body"><div class="termcloud" id="cmTerms"></div></div>
+  </section>
+
+  <!-- ── SECTION 4 · ประเด็น ────────────────────────────── -->
+  <div class="section" id="issuesSec">
+    <span class="tag">ส่วนที่ 4</span>
+    <h2>ประเด็นและคำของโซนนี้</h2>
+    <span class="say" id="issuesSay">—</span>
+  </div>
+
+  <div class="grid-2">
+    <section class="card lift" aria-label="ประเด็น">
+      <div class="card-head"><h2>ประเด็นที่กำลังมาแรง</h2><span class="hint">จำนวนโพสต์ในโซน</span></div>
+      <div class="card-body"><div id="issues"><div class="empty">—</div></div></div>
+    </section>
+    <div class="stack">
+      <section class="card lift" aria-label="คำในโพสต์">
+        <div class="card-head"><h2>คำที่ถูกพูดถึงบ่อย</h2><span class="hint">คลิกเพื่อกรองตาราง</span></div>
+        <div class="card-body"><div class="termcloud" id="terms"></div></div>
+      </section>
+      <section class="card lift" aria-label="ชั่วโมงที่คึกคัก">
+        <div class="card-head"><h2>ชั่วโมงที่คึกคัก</h2><span class="hint" id="hoursHint">—</span></div>
+        <div class="card-body"><div class="chartslot" id="chartHours"></div></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ── SECTION 5 · มิติข้อมูล ─────────────────────────── -->
+  <div class="section">
+    <span class="tag">ส่วนที่ 5</span>
+    <h2>มิติข้อมูลของโซนนี้</h2>
+    <span class="say" id="dimsSay">—</span>
+  </div>
+
+  <section class="card lift" aria-label="มิติข้อมูล">
+    <div class="card-body dimsgrid">
+      <div class="chartcell"><div class="charttitle">วัน × ชั่วโมง<span class="sub" id="heatSub"></span></div><div class="chartslot" id="chartHeat"></div></div>
+      <div class="chartcell"><div class="charttitle">อารมณ์รายวัน</div><div class="chartslot" id="chartStackSent"></div></div>
+      <div class="chartcell"><div class="charttitle">โพสต์รายวัน แยกแพลตฟอร์ม</div><div class="chartslot" id="chartStack"></div></div>
+    </div>
+  </section>
+
+  <div class="chint" style="margin-top:22px;text-align:center">
+    ตัวเลขทั้งหมดในหน้านี้เป็นของโซน “<b id="footZone">—</b>” เท่านั้น ·
+    ภาพรวมทุกโซนอยู่ที่ <a href="/">หน้าแรก</a>
+  </div>
+</div>
+
+<script src="/static/charts.js"></script>
+<script src="/static/sl-charts.js"></script>
+<script src="/static/ws.js"></script>
+</body>
+</html>

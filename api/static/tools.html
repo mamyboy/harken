@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>เครื่องมือ · SatunEcho</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/sl.css">
+</head>
+<body>
+<div class="shell">
+
+  <nav class="topnav">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 64 64"><path fill="#fff" fill-rule="evenodd" d="M22 11C13.7 11 7 17.7 7 26c0 10.8 9.7 21.8 13.1 25.3a2.6 2.6 0 0 0 3.8 0C27.3 47.8 37 36.8 37 26c0-8.3-6.7-15-15-15ZM22 17a8 8 0 1 0 0 16 8 8 0 1 0 0-16Z"/><circle cx="22" cy="25" r="4" fill="#FF6B6B"/><path d="M40 17a17 17 0 0 1 0 16" fill="none" stroke="#C4B5FD" stroke-width="5" stroke-linecap="round"/><path d="M48 10a28 28 0 0 1 0 30" fill="none" stroke="#7DD3FC" stroke-width="5" stroke-linecap="round"/></svg>
+      </span>
+      <div>
+        <h1>SatunEcho · Harken</h1>
+        <div class="sub">เครื่องมือจัดการข้อมูล</div>
+      </div>
+    </div>
+    <div class="navspace"></div>
+    <div class="navlinks">
+      <span class="pill" style="margin-right:4px"><span class="dot" id="liveDot"></span><span id="stamp">—</span></span>
+      <a class="navlink" href="/">ภาพรวม</a>
+      <a class="navlink" href="/#zones">โซนคำค้น</a>
+      <a class="navlink" href="/tools" aria-current="page">เครื่องมือ</a>
+    </div>
+  </nav>
+
+  <div class="banner" id="banner" role="alert">
+    <span id="bannerMsg">เชื่อมต่อเซิร์ฟเวอร์ไม่ได้</span>
+    <button class="btn" type="button" id="retry" style="margin-left:auto">ลองอีกครั้ง</button>
+  </div>
+
+  <div class="section" style="margin-top:6px">
+    <span class="tag">จัดการ</span>
+    <h2>สถานะการเก็บข้อมูล</h2>
+    <span class="say">โพสต์และคอมเมนต์ที่ระบบเก็บได้จริง แยกตามโซนคำค้น</span>
+  </div>
+
+  <section class="card" aria-label="สถานะการเก็บข้อมูล">
+    <div class="card-head">
+      <h2>โซนคำค้นทั้งหมด</h2>
+      <span class="hint" id="covHint">—</span>
+      <button class="btn" type="button" id="export" style="margin-left:8px">ส่งออก CSV</button>
+    </div>
+    <div class="tablewrap" style="margin-top:10px">
+      <table>
+        <caption class="sr">สถานะการเก็บข้อมูลแต่ละโซน</caption>
+        <thead><tr>
+          <th scope="col">โซนคำค้น</th><th scope="col">แพลตฟอร์ม</th>
+          <th scope="col" style="text-align:right">โพสต์</th>
+          <th scope="col" style="text-align:right">คอมเมนต์ที่เก็บ / ที่แพลตฟอร์มรายงาน</th>
+          <th scope="col">สถานะ</th><th scope="col"><span class="sr">จัดการ</span></th>
+        </tr></thead>
+        <tbody id="covRows"><tr><td colspan="6" style="padding:16px"><div class="skel" style="width:56%"></div></td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="section">
+    <span class="tag">ตรวจทาน</span>
+    <h2>คิวรอทบทวน</h2>
+    <span class="say" id="revSay">โพสต์ที่ระบบไม่แน่ใจว่าเกี่ยวข้องกับคำค้น</span>
+  </div>
+
+  <section class="card" aria-label="คิวรอทบทวน">
+    <div class="card-head"><h2>ตัดสินใจด้วยคน</h2><span class="hint" id="revMeta">—</span></div>
+    <div class="card-body"><div id="revList"><div class="empty">ไม่มีรายการรอทบทวน</div></div></div>
+  </section>
+
+  <div class="section">
+    <span class="tag">ล้างข้อมูล</span>
+    <h2>ลบชุดข้อมูล</h2>
+    <span class="say">ไฟล์ต้นฉบับถูกย้ายไป feeds_archive/ — กู้คืนได้</span>
+  </div>
+
+  <div class="grid-2">
+    <section class="card" aria-label="ลบทีละโซน">
+      <div class="card-head"><h2>ลบทีละโซน</h2></div>
+      <div class="card-body">
+        <div class="picker" style="border-color:var(--line-2); width:100%">
+          <label for="zoneSel">โซน</label>
+          <select id="zoneSel" style="flex:1; max-width:none"><option value="">— เลือกโซน —</option></select>
+        </div>
+        <button class="btn" type="button" id="clearRun" style="margin-top:12px; border-color:#FFD2D2; color:var(--coral-ink)">
+          ลบโซนที่เลือก
+        </button>
+        <div class="chint" id="clearMsg" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+    <section class="card" aria-label="ลบทั้งชุด">
+      <div class="card-head"><h2>ลบทั้งหมด</h2></div>
+      <div class="card-body">
+        <div class="chint" id="allSummary">—</div>
+        <button class="btn" type="button" id="clearAll" style="margin-top:12px; border-color:#FFD2D2; color:var(--coral-ink)">
+          ลบข้อมูลทั้งหมด
+        </button>
+        <button class="btn" type="button" id="clearNews" style="margin-top:12px; margin-left:8px">
+          ลบเฉพาะข่าวเว็บ <b id="newsCount" class="num">—</b>
+        </button>
+        <div class="chint" id="clearMsg2" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="chint" style="margin-top:24px;text-align:center">
+    หน้านี้จัดการข้อมูลเท่านั้น · ดูตัวเลขวิเคราะห์ที่ <a href="/">ภาพรวม</a> หรือเลือกโซนจาก <a href="/#zones">รายการโซน</a>
+  </div>
+</div>
+<script src="/static/tools.js"></script>
+</body>
+</html>

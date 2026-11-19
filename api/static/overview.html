@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>ภาพรวม · SatunEcho Social Listening</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/sl.css">
+</head>
+<body>
+<div class="shell">
+
+  <nav class="topnav">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 64 64"><path fill="#fff" fill-rule="evenodd" d="M22 11C13.7 11 7 17.7 7 26c0 10.8 9.7 21.8 13.1 25.3a2.6 2.6 0 0 0 3.8 0C27.3 47.8 37 36.8 37 26c0-8.3-6.7-15-15-15ZM22 17a8 8 0 1 0 0 16 8 8 0 1 0 0-16Z"/><circle cx="22" cy="25" r="4" fill="#FF6B6B"/><path d="M40 17a17 17 0 0 1 0 16" fill="none" stroke="#C4B5FD" stroke-width="5" stroke-linecap="round"/><path d="M48 10a28 28 0 0 1 0 30" fill="none" stroke="#7DD3FC" stroke-width="5" stroke-linecap="round"/></svg>
+      </span>
+      <div>
+        <h1>SatunEcho · Harken</h1>
+        <div class="sub">Social Listening — ภาพรวมทุกโซนคำค้น</div>
+      </div>
+    </div>
+    <div class="navspace"></div>
+    <div class="navlinks">
+      <span class="pill" style="margin-right:4px"><span class="dot" id="liveDot"></span><span id="stamp">—</span></span>
+      <a class="navlink" href="/" aria-current="page">ภาพรวม</a>
+      <a class="navlink" href="#zones">โซนคำค้น</a>
+      <a class="navlink" href="/tools">เครื่องมือ</a>
+    </div>
+  </nav>
+
+  <div class="banner" id="banner" role="alert">
+    <span id="bannerMsg">เชื่อมต่อเซิร์ฟเวอร์ไม่ได้</span>
+    <button class="btn" type="button" id="retry" style="margin-left:auto">ลองอีกครั้ง</button>
+  </div>
+
+  <!-- ── 1. ตัวเลขหลัก ───────────────────────────────────── -->
+  <div class="kpis" id="kpis">
+    <div class="kpi"><div class="k"><span>โพสต์ทั้งหมด</span></div><span class="v num" id="kPosts">—</span><div class="f" id="kPostsF">ทุกโซนรวมกัน</div><div class="spark" id="sPosts"></div></div>
+    <div class="kpi"><div class="k"><span>คอมเมนต์ที่เก็บได้</span></div><span class="v num" id="kComments">—</span><div class="f" id="kCommentsF">จากทุกโพสต์</div></div>
+    <div class="kpi"><div class="k"><span>การมีส่วนร่วม</span></div><span class="v num" id="kEng">—</span><div class="f" id="kEngF">ไลก์ + ตอบกลับ + รีโพสต์</div></div>
+    <div class="kpi"><div class="k"><span>ผู้โพสต์</span></div><span class="v num" id="kAuthors">—</span><div class="f" id="kAuthorsF">บัญชีที่ไม่ซ้ำ</div></div>
+    <div class="kpi"><div class="k"><span>โซนคำค้น</span></div><span class="v num" id="kZones">—</span><div class="f" id="kZonesF">แต่ละคำค้นแยกกัน</div></div>
+  </div>
+
+  <!-- ── 2. แนวโน้ม + องค์ประกอบ ─────────────────────────── -->
+  <div class="section">
+    <span class="tag">ภาพรวม</span>
+    <h2>สัญญาณสนทนารวม</h2>
+    <span class="say" id="trendSay">ทุกโซนคำค้น · ไม่แยกโซน</span>
+  </div>
+
+  <div class="grid-main">
+    <section class="card lift" aria-label="แนวโน้มการพูดถึง">
+      <div class="card-head">
+        <h2>แนวโน้มการพูดถึง</h2>
+        <div style="display:flex;gap:6px;margin-left:auto">
+          <button class="btn" type="button" id="segDay" aria-pressed="true">รายวัน</button>
+          <button class="btn" type="button" id="segHour" aria-pressed="false">รายชั่วโมง</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chartbox"><div class="chartslot" id="chartTrend"></div></div>
+        <div class="chint" id="trendNote">เส้นทึบ = ช่วงล่าสุด · เส้นประ = ช่วงก่อนหน้า · คลิกจุดเพื่อดูสรุปของวันนั้น</div>
+      </div>
+    </section>
+
+    <div class="stack">
+      <section class="card lift" aria-label="อารมณ์ของบทสนทนา">
+        <div class="card-head"><h2>อารมณ์ของบทสนทนา</h2><span class="hint" id="sentHint">—</span></div>
+        <div class="card-body"><div class="bars" id="sentBars"></div></div>
+      </section>
+      <section class="card lift" aria-label="สัดส่วนแพลตฟอร์ม">
+        <div class="card-head"><h2>สัดส่วนแพลตฟอร์ม</h2><span class="hint">คลิกเพื่อเปิดโซน</span></div>
+        <div class="card-body"><div id="chartDonut"></div></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ── 3. โซนคำค้น ─────────────────────────────────────── -->
+  <div class="section" id="zones">
+    <span class="tag">แยกโซน</span>
+    <h2>โซนคำค้น</h2>
+    <span class="say">แต่ละคำค้นมีตัวเลขของตัวเอง — เปิดเข้าไปดูได้ทีละโซน</span>
+  </div>
+
+  <section class="card lift" aria-label="รายการโซนคำค้น">
+    <div class="card-head">
+      <h2>คำค้นที่เก็บไว้</h2>
+      <span class="hint" id="zoneCount">—</span>
+    </div>
+    <div class="filters" style="margin:14px 18px 0;box-shadow:none;border-color:var(--line)">
+      <span class="fl">ค้นหาโซน</span>
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.6" stroke="#8C99B4" stroke-width="1.6"/><path d="M10.6 10.6 14 14" stroke="#8C99B4" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <label class="sr" for="zq">ค้นหาโซนคำค้น</label>
+        <input id="zq" type="search" placeholder="ชื่อโซน / แพลตฟอร์ม" autocomplete="off">
+      </div>
+      <div class="picker">
+        <label for="zplat">แพลตฟอร์ม</label>
+        <select id="zplat"><option value="">ทั้งหมด</option><option value="tiktok">TikTok</option><option value="facebook">Facebook</option><option value="threads">Threads</option></select>
+      </div>
+      <div class="picker">
+        <label for="zsort">เรียง</label>
+        <select id="zsort">
+          <option value="recent">ล่าสุดก่อน</option>
+          <option value="posts">โพสต์มากสุด</option>
+          <option value="comments">คอมเมนต์มากสุด</option>
+          <option value="name">ชื่อ ก–ฮ</option>
+        </select>
+      </div>
+      <span class="hint" id="zoneShown" style="margin-left:auto"></span>
+    </div>
+    <div class="tablewrap" style="margin-top:12px">
+      <table>
+        <caption class="sr">โซนคำค้นทั้งหมด</caption>
+        <thead><tr>
+          <th scope="col">โซนคำค้น</th><th scope="col">แพลตฟอร์ม</th>
+          <th scope="col" style="text-align:right">โพสต์</th>
+          <th scope="col" style="text-align:right">คอมเมนต์</th>
+          <th scope="col">ช่วงข้อมูล</th><th scope="col">สถานะ</th><th scope="col"><span class="sr">เปิด</span></th>
+        </tr></thead>
+        <tbody id="zoneRows"><tr><td colspan="7" style="padding:16px"><div class="skel" style="width:52%;margin-bottom:9px"></div><div class="skel" style="width:78%"></div></td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 4. ประเด็น + คำ ──────────────────────────────────── -->
+  <div class="section">
+    <span class="tag">ประเด็น</span>
+    <h2>อะไรกำลังถูกพูดถึง</h2>
+    <span class="say" id="issuesSay">—</span>
+  </div>
+
+  <div class="grid-2">
+    <section class="card lift" aria-label="ประเด็นที่กำลังมาแรง">
+      <div class="card-head"><h2>ประเด็นที่กำลังมาแรง</h2><span class="hint">จำนวนโพสต์ใน 7 วันล่าสุด</span></div>
+      <div class="card-body"><div id="issues"><div class="empty">—</div></div></div>
+    </section>
+    <div class="stack">
+      <section class="card lift" aria-label="คำที่ถูกพูดถึง">
+        <div class="card-head"><h2>คำที่ถูกพูดถึงบ่อย</h2><span class="hint">คลิกเพื่อค้นหาชื่อโซนด้วยคำนี้</span></div>
+        <div class="card-body"><div class="termcloud" id="terms"></div></div>
+      </section>
+      <section class="card lift" aria-label="ชั่วโมงที่คึกคัก">
+        <div class="card-head"><h2>ชั่วโมงที่คึกคัก</h2><span class="hint" id="hoursHint">—</span></div>
+        <div class="card-body"><div class="chartslot" id="chartHours"></div></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ── 5. โพสต์ที่มีอิทธิพล ─────────────────────────────── -->
+  <div class="section">
+    <span class="tag">โพสต์</span>
+    <h2>โพสต์ที่มีอิทธิพลที่สุด</h2>
+    <span class="say">5 อันดับแรกจากทุกโซน · ตารางเต็มอยู่ในโซนคำค้น</span>
+  </div>
+
+  <section class="card lift" aria-label="โพสต์ที่มีอิทธิพล">
+    <div class="card-head"><h2>โพสต์เด่น</h2><span class="hint" id="topPostsHint">—</span></div>
+    <div class="tablewrap" style="margin-top:10px">
+      <table>
+        <caption class="sr">โพสต์ที่มีการมีส่วนร่วมสูงสุด</caption>
+        <thead><tr><th scope="col">เวลา</th><th scope="col">ผู้โพสต์</th><th scope="col">ข้อความ</th><th scope="col" style="text-align:right">การมีส่วนร่วม</th><th scope="col"><span class="sr">เปิด</span></th></tr></thead>
+        <tbody id="topRows"><tr><td colspan="5" style="padding:16px"><div class="skel" style="width:60%"></div></td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 6. ข่าวเว็บ (แยกชุดข้อมูล) ──────────────────────── -->
+  <div class="section" id="news">
+    <span class="tag">ชุดข้อมูลที่ 2</span>
+    <h2>ข่าวจากเว็บ</h2>
+    <span class="say" id="newsSay">แยกจากโซเชียลโดยสิ้นเชิง</span>
+  </div>
+  <section class="card lift" aria-label="ข่าวจากเว็บ">
+    <div class="card-head"><h2>พาดหัวข่าวล่าสุด</h2><span class="hint" id="newsHint">—</span></div>
+    <div class="tablewrap" style="margin-top:10px">
+      <table>
+        <caption class="sr">ข่าวจากเครื่องมือค้นหา</caption>
+        <thead><tr><th scope="col">เวลา</th><th scope="col">แหล่งข่าว</th><th scope="col">พาดหัว</th><th scope="col"><span class="sr">เปิด</span></th></tr></thead>
+        <tbody id="newsRows"><tr><td colspan="4" style="padding:16px"><div class="skel" style="width:64%"></div></td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="chint" style="margin-top:22px;text-align:center">
+    Harken · ข้อมูลจากฐานข้อมูลจริง · อัปเดตอัตโนมัติทุก 5 วินาที ·
+    <a href="/tools">เครื่องมือจัดการข้อมูล</a>
+  </div>
+</div>
+
+<div class="sl-tip" id="dayCard" style="display:none"></div>
+
+<script src="/static/charts.js"></script>
+<script src="/static/sl-charts.js"></script>
+<script src="/static/ov.js"></script>
+</body>
+</html>

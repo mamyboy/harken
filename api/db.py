@@ -3,7 +3,19 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-DB_PATH = os.environ.get('HARKEN_DB', os.path.expanduser('~/Projects/harken/harken.db'))
+DEFAULT_DB = os.path.expanduser('~/Projects/harken/harken.db')
+
+
+def path():
+    """Resolve the DB on every call, not at import.
+
+    Tests point HARKEN_DB at a temp file and other modules must still see the default;
+    a module-level constant freezes whichever value happened to be set during import.
+    """
+    return os.environ.get('HARKEN_DB', DEFAULT_DB)
+
+
+DB_PATH = path()   # snapshot for display only — use path() for anything that writes
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS posts (
@@ -73,7 +85,7 @@ CREATE TABLE IF NOT EXISTS ingest_log (
 
 
 def connect():
-    conn = sqlite3.connect(DB_PATH, timeout=15)
+    conn = sqlite3.connect(path(), timeout=15)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA journal_mode=WAL')
     return conn
@@ -124,4 +136,4 @@ def init():
         conn.execute('CREATE INDEX IF NOT EXISTS idx_posts_kind ON posts(kind)')
         conn.execute("CREATE INDEX IF NOT EXISTS idx_posts_dedupe ON posts(kind, dedupe_key)")
         conn.execute('CREATE INDEX IF NOT EXISTS idx_comments_url_sent ON post_comments(url, sentiment)')
-    return DB_PATH
+    return path()

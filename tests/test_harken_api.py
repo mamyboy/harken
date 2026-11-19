@@ -147,7 +147,8 @@ def test_index_page_served():
     r = client.get('/')
     assert r.status_code == 200
     assert 'Harken' in r.text
-    assert '/api/posts' in r.text
+    assert '/static/ov.js' in r.text, 'overview shell must load its own module'
+    assert '/static/sl-charts.js' in r.text
     assert 'no-store' in r.headers.get('cache-control', ''), 'shell must not be cached'
 
 
@@ -595,3 +596,78 @@ def test_comments_carry_sentiment_direction():
 
     lean = client.get('/api/posts?comments=0&limit=1').json()['posts'][0]
     assert 'comments' not in lean, 'comments=0 must skip the comment payload'
+
+
+# ── keyword zones vs overview ──────────────────────────────────────────────
+# The listener answers two different questions and must never blend them:
+#   /            -> every run at once (overview)
+#   /api/search/ -> exactly one run (keyword zone)
+
+
+def test_zone_endpoint_answers_in_one_request():
+    d = client.get('/api/search/threads_run-a').json()
+    assert set(d) >= {'zone', 'stats', 'trend', 'dims', 'comments', 'issues', 'rankings'}
+    assert d['zone']['run'] == 'threads_run-a'
+    assert d['zone']['label'], 'a zone always carries a readable label'
+    assert d['stats']['total'] == 3
+    assert sum(d['trend']['cur']) == 3, d['trend']
+    assert d['dims']['window']['days'] == 7
+    assert 'sentiment' in d['comments'] and 'top_commenters' in d['comments']
+    assert isinstance(d['issues'], list)
+
+
+def test_zone_endpoint_is_isolated_from_other_zones():
+    a = client.get('/api/search/threads_run-a').json()
+    b = client.get('/api/search/facebook_run-b').json()
+    assert a['stats']['total'] == 3 and b['stats']['total'] == 2
+    assert a['stats']['total'] != b['stats']['total']
+    assert {p['platform'] for p in a['stats']['by_platform']} == {'threads'}
+    assert {p['platform'] for p in b['stats']['by_platform']} == {'facebook'}
+    # the overview is a different number entirely — never equal to a single zone
+    assert client.get('/api/stats').json()['total'] == 5
+
+
+def test_zone_endpoint_refuses_to_blend_runs():
+    assert client.get('/api/search/threads_run-a,facebook_run-b').status_code == 400
+
+
+def test_overview_and_workspace_are_separate_pages():
+    ov = client.get('/')
+    assert ov.status_code == 200 and '/static/ov.js' in ov.text
+    ws = client.get('/search')
+    assert ws.status_code == 200 and '/static/ws.js' in ws.text
+    assert ov.text != ws.text
+    # the overview must never call the single-zone endpoint
+    assert '/api/search/' not in ov.text
+    # the zone page must never render the all-runs KPI block
+    assert '/api/stats?' not in ws.text
+    # /ops is now an alias for the data-operations page, not a second dashboard
+    r = client.get('/ops', follow_redirects=False)
+    assert r.status_code == 302 and r.headers['location'] == '/tools'
+
+
+def test_new_static_assets_are_served_locally():
+    for name in ('sl.css', 'sl-charts.js', 'ov.js', 'ws.js', 'tools.js',
+                 'overview.html', 'workspace.html', 'tools.html'):
+        r = client.get('/static/' + name)
+        assert r.status_code == 200, name
+        body = r.text
+        assert 'cdn.' not in body and 'unpkg.com' not in body, name
+    css = client.get('/static/sl.css')
+    assert 'text/css' in css.headers['content-type']
+    js = client.get('/static/sl-charts.js')
+    assert 'javascript' in js.headers['content-type']
+    assert 'HC.register' in js.text
+
+
+def test_tools_page_holds_operations_only():
+    """Three surfaces, three jobs: analysis on / and /search, operations on /tools."""
+    t = client.get('/tools')
+    assert t.status_code == 200
+    assert '/static/tools.js' in t.text
+    assert '/api/review' not in t.text and '/api/search/' not in t.text
+    # no analysis charts may live here — that is what caused the duplication
+    for chart in ('slLine', 'slDonut', 'slStackSent', 'heatmap'):
+        assert chart not in t.text, chart
+    for action in ('clearRun', 'clearAll', 'clearNews', 'export'):
+        assert action in t.text, action

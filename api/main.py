@@ -72,7 +72,7 @@ def health():
         last = conn.execute('SELECT * FROM ingest_log ORDER BY id DESC LIMIT 1').fetchone()
     return {
         'ok': True,
-        'db': db.DB_PATH,
+        'db': db.path(),
         'posts': posts,
         'last_ingest': dict(last) if last else None,
         'server_time': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
@@ -224,15 +224,26 @@ def stats(run: str = '', include_noise: int = 0):
         translated = conn.execute(
             "SELECT COUNT(*) c FROM posts WHERE text_th <> '' AND text_th <> text_raw"
             + (' AND ' + ' AND '.join(rw) if rw else ''), rp).fetchone()['c']
+        # parentheses matter: without them the OR swallows the run filter and every
+        # zone reports the global count (and "readable" can exceed "total")
         native_th = conn.execute(
-            "SELECT COUNT(*) c FROM posts WHERE COALESCE(text_th,'') = '' OR text_th = text_raw"
+            "SELECT COUNT(*) c FROM posts WHERE (COALESCE(text_th,'') = '' OR text_th = text_raw)"
             + (' AND ' + ' AND '.join(rw) if rw else ''), rp).fetchone()['c']
-        comments = conn.execute('SELECT COUNT(*) c FROM post_comments').fetchone()['c']
+        # comment counts follow the same scope as posts — a zone must never show
+        # the whole listener's comment total
+        cw, cp = [], []
+        _run_clause(cw, cp, run, prefix='p.')
+        cw.append("COALESCE(p.kind,'social') = 'social'")
+        if not include_noise:
+            cw.append('COALESCE(p.noise,0) = 0')
+        cjoin = (' FROM post_comments c JOIN posts p ON p.url = c.url WHERE '
+                 + ' AND '.join(cw))
+        comments = conn.execute('SELECT COUNT(*) c' + cjoin, cp).fetchone()['c']
         comment_sentiment = [dict(r) for r in conn.execute(
-            "SELECT COALESCE(NULLIF(sentiment,''),'none') s, COUNT(*) n FROM post_comments "
-            "GROUP BY s ORDER BY n DESC")]
+            "SELECT COALESCE(NULLIF(c.sentiment,''),'none') s, COUNT(*) n" + cjoin +
+            ' GROUP BY s ORDER BY n DESC', cp)]
         posts_with_comments = conn.execute(
-            'SELECT COUNT(DISTINCT url) c FROM post_comments').fetchone()['c']
+            'SELECT COUNT(DISTINCT c.url) c' + cjoin, cp).fetchone()['c']
         by_sentiment = [dict(r) for r in conn.execute(
             "SELECT COALESCE(NULLIF(sentiment,''),'none') s, COUNT(*) n FROM posts " + W +
             " GROUP BY s ORDER BY n DESC", rp)]
@@ -245,10 +256,12 @@ def stats(run: str = '', include_noise: int = 0):
             'COALESCE(SUM(reposts),0) rp FROM posts ' + W, rp).fetchone()
         texts = [r['text_th'] or r['text_raw'] or '' for r in conn.execute(
             'SELECT text_th, text_raw FROM posts ' + W + ' LIMIT 800', rp)]
-        # a news-only run still deserves a term cloud: headlines are written, not chatted
-        texts += [r['text_raw'] or '' for r in conn.execute(
-            "SELECT text_raw FROM posts WHERE COALESCE(kind,'social') = 'news' "
-            "AND COALESCE(noise,0) = 0 LIMIT 400")]
+        # a news-only run still deserves a term cloud: headlines are written, not chatted.
+        # Only for the overview — a keyword zone's terms must come from its own posts.
+        if not run:
+            texts += [r['text_raw'] or '' for r in conn.execute(
+                "SELECT text_raw FROM posts WHERE COALESCE(kind,'social') = 'news' "
+                "AND COALESCE(noise,0) = 0 LIMIT 400")]
         news_total = conn.execute(
             "SELECT COUNT(*) c FROM posts WHERE COALESCE(kind,'social') = 'news' "
             "AND COALESCE(noise,0) = 0").fetchone()['c']
@@ -812,6 +825,35 @@ def runs():
     return {'runs': out, 'count': len(out), 'total_posts': sum(r['posts'] for r in out)}
 
 
+def _backup_db(tag='clear'):
+    """Snapshot the SQLite file before anything destructive.
+
+    A clear once emptied the live listener while the feed files sat in
+    feeds_archive/ — recoverable, but only by hand. Every destructive call now
+    leaves a restorable copy in backups/ so nothing is ever one click from gone.
+    """
+    import datetime as dt
+    import shutil
+    src = db.path()
+    if not os.path.exists(src):
+        return ''
+    root = os.path.join(os.path.dirname(src), 'backups')
+    try:
+        os.makedirs(root, exist_ok=True)
+        dst = os.path.join(root, 'harken-%s-%s.db' % (
+            tag, dt.datetime.now().strftime('%Y%m%d-%H%M%S')))
+        try:
+            with db.db() as conn:          # fold the WAL in so the copy is whole
+                conn.execute('PRAGMA wal_checkpoint(FULL)')
+        except Exception:
+            pass
+        shutil.copy2(src, dst)
+        return dst
+    except Exception as e:
+        print('[backup] failed: %s' % e, flush=True)
+        return ''
+
+
 @app.post('/api/news/clear')
 def clear_news(keep_files: int = 0):
     """Delete only the web-news dataset, leaving the social listener untouched.
@@ -823,6 +865,7 @@ def clear_news(keep_files: int = 0):
     import os
     import shutil
 
+    backup = _backup_db('clear-news')
     with db.db() as conn:
         deleted = conn.execute(
             "DELETE FROM posts WHERE COALESCE(kind,'social') = 'news'").rowcount
@@ -837,7 +880,7 @@ def clear_news(keep_files: int = 0):
             os.makedirs(dest, exist_ok=True)
             shutil.move(path, os.path.join(dest, os.path.basename(path)))
             archived.append(os.path.basename(path))
-    return {'news_deleted': deleted, 'archived': archived}
+    return {'news_deleted': deleted, 'archived': archived, 'backup': backup}
 
 
 @app.post('/api/runs/clear')
@@ -854,6 +897,7 @@ def clear_runs(run: str = '', all: int = 0, keep_files: int = 0):
     runs = [r.strip() for r in (run or '').split(',') if r.strip()]
     if not runs and not all:
         raise HTTPException(status_code=400, detail='ต้องระบุ run หรือ all=1')
+    backup = _backup_db('clear-all' if all else 'clear-run')
 
     with db.db() as conn:
         if all:
@@ -884,7 +928,7 @@ def clear_runs(run: str = '', all: int = 0, keep_files: int = 0):
             archived.append(os.path.join(dest, base))
 
     return {'ok': True, 'runs': runs, 'all': bool(all), 'posts_deleted': posts,
-            'comments_deleted': comments, 'archived': archived}
+            'comments_deleted': comments, 'archived': archived, 'backup': backup}
 
 
 @app.get('/api/dims')
@@ -1180,11 +1224,84 @@ def post_comments(post_id: str):
     return {'url': post_id, 'count': len(rows), 'sentiment': mix, 'comments': rows}
 
 
+def _zone_meta(run):
+    """Run card for one search zone, reusing /api/runs so labels stay consistent."""
+    try:
+        all_runs = runs()
+    except Exception:
+        all_runs = {'runs': []}
+    row = next((r for r in all_runs.get('runs', []) if r.get('run') == run), None)
+    if not row:
+        return {'run': run, 'label': run, 'kind': 'social', 'platforms': [],
+                'posts': 0, 'queries': [], 'status': 'missing', 'note': '',
+                'comments_stored': 0, 'comments_reported': 0,
+                'comments_coverage': None, 'first_iso': '', 'last_iso': ''}
+    return row
+
+
+@app.get('/api/search/{run:path}')
+def search_zone(run: str, days: int = Query(7, ge=1, le=90),
+                include_noise: int = 0, gran: str = 'day'):
+    """Everything one keyword zone needs, in a single request.
+
+    A zone is one search run (one feed file). The overview dashboard never mixes
+    these numbers — it closes over every run at once. This endpoint is the only
+    place a single zone's stats, trend, dimensions, comment reaction and issue
+    list are assembled together, so the workspace page can paint without a
+    fan-out of eight parallel fetches.
+    """
+    key = (run or '').strip()
+    if not key:
+        raise HTTPException(status_code=400, detail='run is required')
+    if ',' in key:
+        raise HTTPException(status_code=400, detail='a zone is exactly one run')
+
+    st = stats(run=key, include_noise=include_noise)
+    tr = trend(gran=gran, days=days, run=key, include_noise=include_noise)
+    dm = dims(days=days, run=key, include_noise=include_noise)
+    ci = comments_insights(days=90, run=key)
+    iss = issues(days=days, limit=8, run=key, include_noise=include_noise)
+    rk = rankings(days=days, limit=6, run=key, include_noise=include_noise)
+    zone = _zone_meta(key)
+    return {
+        'zone': zone,
+        'revision': _revision(),
+        'window': {'days': days, 'from': tr.get('from', ''), 'to': tr.get('to', '')},
+        'stats': st, 'trend': tr, 'dims': dm,
+        'comments': ci, 'issues': iss.get('issues', []),
+        'issues_window_days': iss.get('window_days', days),
+        'rankings': rk,
+    }
+
+
 @app.get('/')
 def index():
-    """Serve the current dashboard shell — no-store so a stale cache can't show a blank page."""
-    return FileResponse(os.path.join(STATIC, 'app.html'),
+    """Overview: the whole-listener picture. Zones live at /search?run=…"""
+    return FileResponse(os.path.join(STATIC, 'overview.html'),
                         headers={'Cache-Control': 'no-store, must-revalidate'})
+
+
+@app.get('/search')
+def search_page():
+    """One keyword zone per page — never blended with the overview."""
+    return FileResponse(os.path.join(STATIC, 'workspace.html'),
+                        headers={'Cache-Control': 'no-store, must-revalidate'})
+
+
+@app.get('/tools')
+def tools_page():
+    """Data operations only: coverage, review queue, clearing, export.
+
+    Analysis lives on / and /search — this page never repeats a chart.
+    """
+    return FileResponse(os.path.join(STATIC, 'tools.html'),
+                        headers={'Cache-Control': 'no-store, must-revalidate'})
+
+
+@app.get('/ops')
+def ops_page():
+    """Old address for the data-operations surface."""
+    return RedirectResponse('/tools', status_code=302)
 
 
 @app.get('/vibrant')
