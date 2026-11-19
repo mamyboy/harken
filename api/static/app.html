@@ -782,6 +782,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       <div class="card-head">
         <h2>ข่าวจาก Search Engine</h2>
         <span class="hint" id="news-hint">–</span>
+        <button type="button" class="btn btn-quiet" id="clearNews" style="margin-left:auto;padding:5px 10px">ล้างข่าว</button>
       </div>
       <div class="newsbar">
         <div class="chips" id="newsSources" role="group" aria-label="กรองตามแหล่งข่าว"></div>
@@ -926,7 +927,13 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     const label = all ? 'ข้อมูลทั้งหมด' : 'ชุด “' +
       ((S.runs || []).find(r => r.run === S.run) || {}).label + '”';
     const msg = $('#clearMsg');
+    const nSocial = (S.stats && S.stats.total) || 0;
+    const nNews = (S.stats && S.stats.news_total) || 0;
+    const scope = all
+      ? 'โพสต์โซเชียล ' + num(nSocial) + ' รายการ และข่าวจาก Search Engine ' + num(nNews) + ' รายการ'
+      : 'เฉพาะโพสต์ของชุดนี้ (ข่าว Search Engine ไม่ถูกลบ)';
     if (!window.confirm('ลบ' + label + ' ออกจากแดชบอร์ด?\n\n' +
+        'จะลบ: ' + scope + '\n' +
         '• แถวในฐานข้อมูลจะถูกลบถาวร\n' +
         '• ไฟล์ฟีดจะถูกย้ายไป feeds_archive/ (ไม่ถูกลบ)\n' +
         '• กู้คืนได้จากไฟล์สำรอง')) return;
@@ -947,7 +954,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       if (msg) msg.textContent = 'ลบแล้ว ' + num(d.posts_deleted) + ' โพสต์ · เก็บไฟล์ ' +
         (d.archived || []).length + ' ไฟล์';
       await Promise.all([loadPosts(), loadStats(), loadTrend(), loadIssues(), loadDims(),
-        loadSummary(), loadRankings()]);
+        loadSummary(), loadRankings(), loadNews(), loadCoverage(), loadReview()]);
     } catch (e) {
       if (msg) msg.textContent = 'ล้างไม่สำเร็จ: ' + e.message;
     } finally {
@@ -971,7 +978,21 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       + '<td><a class="btn ghost" href="' + esc(n.url) + '" target="_blank" rel="noopener" '
       + 'onclick="event.stopPropagation()">เปิด</a></td></tr>';
   }
-  async function loadNews(append){
+  async function clearNewsOnly(){
+  const n = (S.stats && S.stats.news_total) || 0;
+  if (!n) { return; }
+  if (!window.confirm('ลบข่าวจาก Search Engine ทั้ง ' + num(n) + ' รายการ?\n\n' +
+      'โพสต์โซเชียลจะไม่ถูกแตะต้อง · ไฟล์ฟีดถูกย้ายไป feeds_archive/')) return;
+  const btn = document.querySelector('#clearNews');
+  if (btn) { btn.disabled = true; btn.classList.add('busy'); }
+  try {
+    await fetch('/api/news/clear', {method: 'POST'}).then(r => r.json());
+    await Promise.all([loadNews(), loadStats(), loadCoverage()]);
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('busy'); }
+  }
+}
+async function loadNews(append){
     const host = $('#newsrows'), info = $('#news-info'), hint = $('#news-hint');
     if (!host) return;
     if (!append) { NEWS.offset = 0; }
@@ -1161,6 +1182,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     const st = await fetch('/api/stats?' + (S.run ? 'run=' + encodeURIComponent(S.run) + '&' : '')
       + (S.noiseOn ? 'include_noise=1' : '')).then(r => r.json());
     S.hiddenNoise = st.hidden_noise || 0;
+    S.stats = st;
     const rb = $('#revBadge');
     if (rb && st.revision) rb.textContent = 'ข้อมูลรุ่น ' + st.revision;
     const nb = $('#noiseCount'); if (nb) nb.textContent = num(S.hiddenNoise);
@@ -1515,6 +1537,8 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       $('#pill-text').textContent = 'ขาดการเชื่อมต่อ';
     }
   }
+  const cn = $('#clearNews');
+  if (cn) cn.addEventListener('click', clearNewsOnly);
   function reset(){ S.page = 1; refresh(); }
 
   /* ── drawer ─────────────────────────────────────────────── */

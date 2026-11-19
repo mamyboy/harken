@@ -748,6 +748,34 @@ def runs():
     return {'runs': out, 'count': len(out), 'total_posts': sum(r['posts'] for r in out)}
 
 
+@app.post('/api/news/clear')
+def clear_news(keep_files: int = 0):
+    """Delete only the web-news dataset, leaving the social listener untouched.
+
+    The news feed file (if any) is archived, never destroyed — same contract as /api/runs/clear.
+    """
+    import datetime as dt
+    import glob
+    import os
+    import shutil
+
+    with db.db() as conn:
+        deleted = conn.execute(
+            "DELETE FROM posts WHERE COALESCE(kind,'social') = 'news'").rowcount
+
+    archived = []
+    if not keep_files:
+        stamp = dt.datetime.now().strftime('%Y%m%d-%H%M%S')
+        dest = os.path.join(PROJECT, 'feeds_archive', stamp)
+        for path in glob.glob(os.path.join(PROJECT, 'news_*.jsonl')):
+            if path.endswith('-cand.jsonl'):
+                continue
+            os.makedirs(dest, exist_ok=True)
+            shutil.move(path, os.path.join(dest, os.path.basename(path)))
+            archived.append(os.path.basename(path))
+    return {'news_deleted': deleted, 'archived': archived}
+
+
 @app.post('/api/runs/clear')
 def clear_runs(run: str = '', all: int = 0, keep_files: int = 0):
     """Delete one search run, or everything — rows now and the feed file so it can't return.

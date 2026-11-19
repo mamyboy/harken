@@ -254,6 +254,23 @@ def test_clear_requires_a_scope():
     assert client.post('/api/runs/clear').status_code == 400
 
 
+def test_clear_news_leaves_the_social_listener_untouched():
+    before_social = client.get('/api/posts').json()['total']
+    before_news = client.get('/api/news').json()['total']
+    assert before_news > 0
+
+    # keep_files so the shared fixture can be rebuilt for the tests that follow
+    body = client.post('/api/news/clear?keep_files=1').json()
+    assert body['news_deleted'] == before_news
+
+    assert client.get('/api/news').json()['total'] == 0
+    assert client.get('/api/posts').json()['total'] == before_social, 'social posts stay'
+    assert client.get('/api/stats').json()['news_total'] == 0
+
+    ingest.ingest(project=FEEDS)          # put the fixture back
+    assert client.get('/api/news').json()['total'] == before_news
+
+
 def test_dims_exposes_every_dimension():
     d = client.get('/api/dims?days=7').json()
     assert d['window']['days'] == 7 and d['window']['from'] and d['window']['to']
