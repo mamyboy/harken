@@ -969,8 +969,14 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
 
   /* ── news search: its own dataset, own filters, own paging ─ */
   const NEWS = {q: '', source: '', offset: 0, limit: 20, total: 0};
+  // Thai readers expect DD/MM, not the ISO MM-DD slice
+  function thDate(iso){
+    const m = /^(\d{4})-(\d{2})-(\d{2})T?(\d{2}:\d{2})?/.exec(iso || '');
+    if (!m) return '';
+    return m[3] + '/' + m[2] + (m[4] ? ' ' + m[4] : '');
+  }
   function newsRow(n){
-    const t = (n.posted_iso || '').replace('T', ' ').slice(5, 16);
+    const t = thDate(n.posted_iso);
     return '<tr class="newsrow" data-url="' + esc(n.url) + '">'
       + '<td class="num" style="color:var(--muted-2);white-space:nowrap">' + esc(t || '—') + '</td>'
       + '<td class="src">' + esc(n.source || '—') + '</td>'
