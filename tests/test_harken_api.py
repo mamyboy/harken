@@ -506,6 +506,20 @@ def test_news_filters_and_never_enters_social_analytics():
                for r in sentiment.pending(limit=200))
 
 
+def test_hidden_noise_never_counts_news():
+    before = client.get('/api/stats').json()['hidden_noise']
+    with db.db() as conn:
+        conn.execute("UPDATE posts SET noise=1 WHERE kind='news'")
+    try:
+        after = client.get('/api/stats').json()
+        assert after['hidden_noise'] == before      # news is not social noise
+        assert after['total'] == 5
+        assert client.get('/api/news').json()['total'] == 2   # still listed, never hidden
+    finally:
+        with db.db() as conn:
+            conn.execute("UPDATE posts SET noise=0 WHERE kind='news'")
+
+
 def test_news_dedupes_the_same_story_across_tracking_urls():
     # Google News hands out a fresh tracking URL for the same article
     _feed('news_dup.jsonl', [

@@ -242,7 +242,8 @@ def stats(run: str = '', include_noise: int = 0):
         texts = [r['text_th'] or r['text_raw'] or '' for r in conn.execute(
             'SELECT text_th, text_raw FROM posts ' + W + ' LIMIT 800', rp)]
         hidden_noise = conn.execute(
-            'SELECT COUNT(*) c FROM posts WHERE COALESCE(noise,0) = 1'
+            "SELECT COUNT(*) c FROM posts WHERE COALESCE(noise,0) = 1 "
+            "AND COALESCE(kind,'social') = 'social'"
             + (' AND ' + ' AND '.join(noise_scope) if noise_scope else ''),
             noise_params).fetchone()['c']
 
