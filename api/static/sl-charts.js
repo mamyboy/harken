@@ -21,7 +21,7 @@
     pos: 'var(--pos)', neu: 'var(--neu)', neg: 'var(--neg)'
   };
   var PLATCOL = {
-    facebook: '#1877F2', fbfeed: '#0A57C4', threads: '#111111', tiktok: '#00F2EA',
+    facebook: '#1877F2', fbfeed: '#0A57C4', threads: '#111111', tiktok: '#00F2EA', x: '#0F1419',
     x: '#0F1419', twitter: '#0F1419', instagram: '#E1306C', ig: '#E1306C',
     youtube: '#FF0000', pantip: '#7B2D8E', lemon8: '#FFC300', news: '#6B7A99', other: '#8C99B4'
   };

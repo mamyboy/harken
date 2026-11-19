@@ -6,7 +6,7 @@
   var $ = function (s) { return document.querySelector(s); };
   var HC = window.HarkenCharts;
 
-  var PLAT = { threads: 'Threads', facebook: 'Facebook', fbfeed: 'Facebook (ฟีด)', tiktok: 'TikTok',
+  var PLAT = { threads: 'Threads', facebook: 'Facebook', fbfeed: 'Facebook (ฟีด)', tiktok: 'TikTok', x: 'X (Twitter)',
     news: 'ข่าวเว็บ', other: 'อื่น ๆ' };
   // arrow is part of the label: the row prints dir.arrow, and a missing key
   // rendered the literal string "undefined" next to the count

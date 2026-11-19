@@ -6,7 +6,7 @@
   var $ = function (s) { return document.querySelector(s); };
   var HC = window.HarkenCharts;
 
-  var PLAT = { threads: 'Threads', facebook: 'Facebook', fbfeed: 'Facebook (ฟีด)', tiktok: 'TikTok',
+  var PLAT = { threads: 'Threads', facebook: 'Facebook', fbfeed: 'Facebook (ฟีด)', tiktok: 'TikTok', x: 'X (Twitter)',
     news: 'ข่าวเว็บ', other: 'อื่น ๆ' };
   var SENT = { pos: { n: 'บวก', e: '😊' }, neu: { n: 'กลาง', e: '😐' },
     neg: { n: 'ลบ', e: '😠' }, none: { n: 'ไม่ระบุ', e: '·' } };

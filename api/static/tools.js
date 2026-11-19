@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   var $ = function (s) { return document.querySelector(s); };
-  var PLAT = { threads: 'Threads', facebook: 'Facebook', fbfeed: 'Facebook (ฟีด)', tiktok: 'TikTok',
+  var PLAT = { threads: 'Threads', facebook: 'Facebook', fbfeed: 'Facebook (ฟีด)', tiktok: 'TikTok', x: 'X (Twitter)',
     news: 'ข่าวเว็บ', other: 'อื่น ๆ' };
   var STL = { complete: 'ครบ', partial: 'กำลังเก็บ', empty: 'ว่าง/ถูกบล็อก',
     missing: 'ไม่มีไฟล์', unknown: '—' };
