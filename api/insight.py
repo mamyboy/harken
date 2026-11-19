@@ -11,9 +11,31 @@ from . import db, llm
 
 NOISE_LABELS = ('noise', 'ok', 'uncertain')
 MAX_SUMMARY_COMMENTS = 100      # analysis cap the user asked for
+# Commercial signals only. "ราคา", "สนใจ", "โทร" and bare @handles were in here
+# and every stock caption ("เคาะราคา IPO") or clip credit (@user) got labelled an
+# ad — 14 of 16 posts in one ANT run were hidden while clearly on topic.
 AD_RE = re.compile(
-    r'(โปรโมชั่น|สั่งซื้อ|สนใจ|ทักแชท|โทร|ราคา|ผ่อน|ส่งฟรี|ขายส่ง|รับสมัคร|'
-    r'shopee|lazada|line\s*@|@[a-z0-9_]{4,})', re.I)
+    r'(โปรโมชั่น|สั่งซื้อ|ทักแชท|ผ่อน\s*\d|ส่งฟรี|ขายส่ง|รับสมัครงาน|'
+    r'shopee\.|lazada\.|line\s*@|เครดิตฟรี|สมัครวันนี้|ดูดวง)', re.I)
+
+PLATFORM_PREFIX = ('facebook_', 'fb_', 'tiktok_', 'tt_', 'threads_', 'th_')
+
+
+def run_keywords(run):
+    """Turn a run slug into the words actually searched.
+
+    The classifier used to be handed the run name ("tiktok_ant") as if it were the
+    keyword, so no post ever matched it and the ad rule had a free hand.
+    """
+    base = (run or '').strip()
+    for pre in PLATFORM_PREFIX:
+        if base.lower().startswith(pre):
+            base = base[len(pre):]
+            break
+    parts = [x for x in re.split(r'[_\-\s]+', base) if len(x) >= 2]
+    whole = ' '.join(parts)
+    out = ([whole] if whole and ' ' in whole else []) + parts
+    return [x for x in out if x]
 
 
 def _text(row):
@@ -23,11 +45,15 @@ def _text(row):
 def heuristic_noise(text, keyword=''):
     """Cheap first pass: obvious ads and empty shells never need the model."""
     t = (text or '').strip()
-    kws = [k.strip() for k in (keyword or '').replace('|', ',').split(',') if k.strip()]
-    hits_keyword = any(k in t for k in kws)
+    if isinstance(keyword, (list, tuple)):
+        kws = [str(k).strip() for k in keyword if str(k).strip()]
+    else:
+        kws = [k.strip() for k in str(keyword or '').replace('|', ',').split(',') if k.strip()]
+    low = t.lower()
+    hits_keyword = any(k.lower() in low for k in kws)
     if len(t) < 15 and not hits_keyword:
         return True, 'สั้นเกินไป'
-    if AD_RE.search(t) and not any(k and k in t for k in keyword.split(',')):
+    if AD_RE.search(t) and not hits_keyword:
         return True, 'โฆษณา/ขายของ'
     return False, ''
 
@@ -43,7 +69,8 @@ def pending_relevance(limit=200):
 
 
 def _ask(session, rows):
-    payload = [{'i': i, 'kw': r.get('run') or '', 't': _text(r)[:400]}
+    payload = [{'i': i, 'kw': (run_keywords(r.get('run')) or [r.get('run') or ''])[0],
+                't': _text(r)[:400]}
                for i, r in enumerate(rows)]
     prompt = (
         'คุณเป็นผู้คัดกรองข้อมูล social listening ให้ตอบว่าโพสต์ต่อไปนี้ "เกี่ยวกับหัวข้อที่ค้นหา" หรือไม่\n'
@@ -65,7 +92,7 @@ def run_relevance(chunks=8):
     checked = noise = failed = 0
     quick, rest = [], []
     for r in rows:
-        bad, why = heuristic_noise(_text(r), r.get('run') or '')
+        bad, why = heuristic_noise(_text(r), run_keywords(r.get('run')))
         (quick if bad else rest).append((r, why))
 
     with db.db() as conn:
