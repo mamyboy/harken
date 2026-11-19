@@ -333,6 +333,20 @@ def test_comments_insights_survives_an_empty_table():
     assert d['total'] == 0 and d['per_post'] == [] and d['sentiment'] == []
 
 
+def test_profile_cards_are_not_stored_as_comments():
+    """Scrapers sometimes capture the author widget instead of a reply."""
+    from api.ingest import _looks_like_profile_card
+    blob = ('somrudee\nsomrudee9937\n57 followers\nFollow\nMessage\nQuotes 1\n2m\n'
+            'Tew Kkr\nFollow suggestions\nballrongciaga\n457 followers\n' + 'x' * 400)
+    assert _looks_like_profile_card(blob) is True
+    assert _looks_like_profile_card('somrudee\n57 followers\nFollow\nMessage\nQuotes 1') is True
+    assert _looks_like_profile_card('ช่วยกันนะคะ หน้าตาหล่อเชียวแต่ยังไม่มีบ้าน') is False
+    assert _looks_like_profile_card('') is True
+    with db.db() as conn:
+        assert conn.execute("SELECT COUNT(*) c FROM post_comments "
+                            "WHERE text_raw LIKE '% followers%'").fetchone()['c'] == 0
+
+
 def test_comments_carry_sentiment_direction():
     target = client.get('/api/posts?limit=1').json()['posts'][0]['url']
     with db.db() as conn:

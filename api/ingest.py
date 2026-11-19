@@ -50,6 +50,23 @@ def _platform(name, url=''):
         return 'other'
 
 
+CHROME_RE = __import__('re').compile(
+    r'(?is)\b\d+\s*followers?\b.*\bfollow\b|\bquotes?\s+\d+\b.*\bmessage\b')
+
+
+def _looks_like_profile_card(text):
+    """True when a 'comment' is really the author widget ('name / N followers / Follow')."""
+    t = (text or '').strip()
+    if not t:
+        return True
+    if CHROME_RE.search(t) or 'Follow suggestions' in t:
+        return True
+    if len(t) > 400:
+        return False
+    lines = [ln.strip() for ln in t.splitlines() if ln.strip()]
+    return bool(len(lines) >= 4 and any('follower' in ln.lower() for ln in lines))
+
+
 def _metrics(p):
     """likes / replies / reposts / shares from any scraper's metric names."""
     m = p.get('metrics') if isinstance(p.get('metrics'), dict) else {}
@@ -162,6 +179,8 @@ def ingest(project=PROJECT, verbose=False):
                 for i, c in enumerate(p.get('comments') or []):
                     curl = c.get('url') or f'{url}#c{i}'
                     ctext = (c.get('text') or '').strip()
+                    if _looks_like_profile_card(ctext):
+                        continue
                     cth = (trans.get(_text_key(ctext)) or {}).get('th') or ctext
                     conn.execute(
                         """INSERT INTO post_comments (id, url, author, text_raw, text_th, posted_iso, likes, is_author)
