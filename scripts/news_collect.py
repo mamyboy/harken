@@ -130,6 +130,10 @@ def main():
     ap.add_argument('--loose', action='store_true',
                     help='keep fuzzy matches (default: the keyword must appear verbatim)')
     ap.add_argument('--out', default='')
+    ap.add_argument('--block-source', default='Vietnam.vn',
+                    help='comma separated outlets to drop (default: Vietnam.vn — its Thai-language '
+                         'edition shows up for Thai keywords but is not Thai public news)')
+    ap.add_argument('--allow-blocked', action='store_true', help='ignore --block-source')
     a = ap.parse_args()
 
     rows = google_news(a.keyword, a.days)
@@ -149,6 +153,14 @@ def main():
 
     # Google/Bing match Thai fuzzily ("ปะหวาจัดให้" -> บางหว้า, บางปะกอก). A news item
     # is only kept when the phrase itself appears in its title or summary.
+    blocked = set() if a.allow_blocked else {
+        b.strip().lower() for b in (a.block_source or '').split(',') if b.strip()}
+    if blocked:
+        before = len(rows)
+        rows = [r for r in rows if (r.get('source') or '').strip().lower() not in blocked]
+        if before != len(rows):
+            print('INFO | blocked %d rows from %s' % (before - len(rows), ', '.join(sorted(blocked))),
+                  file=sys.stderr)
     want = re.sub(r'\s+', '', a.keyword).lower()
     off_topic = 0
     if not a.loose:
