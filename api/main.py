@@ -6,6 +6,7 @@ import asyncio
 import glob
 import hashlib
 import json
+import mimetypes
 import os
 import re
 import time
@@ -20,6 +21,7 @@ STATIC = os.path.join(HERE, 'static')
 PROJECT = os.environ.get('HARKEN_FEEDS', os.path.expanduser('~/Projects/harken'))
 INGEST_EVERY = float(os.environ.get('HARKEN_INGEST_SECONDS', '3'))
 
+mimetypes.add_type('image/svg+xml', '.svg')
 app = FastAPI(title='Harken Dashboard API', version='1.0.0')
 
 
@@ -1098,7 +1100,8 @@ def vibrant():
 
 @app.get('/favicon.ico')
 def favicon():
-    return JSONResponse({}, status_code=204)
+    # browsers that ignore the SVG icon still get the brand mark
+    return FileResponse(os.path.join(STATIC, 'logo.svg'), media_type='image/svg+xml')
 
 
 @app.get('/static/{name}')
@@ -1108,6 +1111,8 @@ def static_file(name: str):
     if not path.startswith(STATIC) or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail='not found')
     ctype = ('application/javascript' if name.endswith('.js')
-             else 'text/css' if name.endswith('.css') else 'application/octet-stream')
+             else 'text/css' if name.endswith('.css')
+             else 'image/svg+xml' if name.endswith('.svg')
+             else 'application/octet-stream')
     return FileResponse(path, media_type=ctype,
                         headers={'Cache-Control': 'no-store, must-revalidate'})

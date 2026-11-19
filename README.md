@@ -1,6 +1,6 @@
 <div align="center">
 
-# ◟◞ Harken
+# ◟◞ SatunEcho — Satun Social Listening
 
 **Self-hosted social listening — hear what the internet says about you, on your own box.**
 
