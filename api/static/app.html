@@ -769,7 +769,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       }
       if (msg) msg.textContent = 'ลบแล้ว ' + num(d.posts_deleted) + ' โพสต์ · เก็บไฟล์ ' +
         (d.archived || []).length + ' ไฟล์';
-      await Promise.all([loadPosts(), loadStats(), loadTrend(), loadIssues()]);
+      await Promise.all([loadPosts(), loadStats(), loadTrend(), loadIssues(), loadDims()]);
     } catch (e) {
       if (msg) msg.textContent = 'ล้างไม่สำเร็จ: ' + e.message;
     } finally {
@@ -832,7 +832,9 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     rows.forEach(r => { smap[r.s] = r.n; });
     $('#heroMood').innerHTML = ['pos', 'neu', 'neg']
       .map(k => '<span>' + SENT[k].e + ' ' + num(smap[k] || 0) + '</span>').join('');
-    $('#sent').innerHTML = onlyNone
+    $('#sent').innerHTML = !rows.length
+      ? '<div class="empty"><b>ยังไม่มีข้อมูลอารมณ์</b>เพิ่มโพสต์แล้วระบบจะจำแนกอารมณ์ให้อัตโนมัติ</div>'
+      : onlyNone
       ? '<div class="empty"><b>ยังไม่ได้วิเคราะห์อารมณ์</b>ระบบจัดประเภทอัตโนมัติหลังแปลเสร็จ</div>'
       : rows.map(s => {
           const m = SENT[s.s] || {n:s.s, c:'none'};
