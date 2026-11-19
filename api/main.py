@@ -18,7 +18,7 @@ from . import db, ingest as ingest_mod, translate as translate_mod, sentiment as
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, 'static')
 PROJECT = os.environ.get('HARKEN_FEEDS', os.path.expanduser('~/Projects/harken'))
-INGEST_EVERY = float(os.environ.get('HARKEN_INGEST_SECONDS', '15'))
+INGEST_EVERY = float(os.environ.get('HARKEN_INGEST_SECONDS', '3'))
 
 app = FastAPI(title='Harken Dashboard API', version='1.0.0')
 
@@ -185,11 +185,11 @@ def _term_list(raw):
     return out[:8]
 
 
-def _run_clause(where, params, run=''):
+def _run_clause(where, params, run='', prefix=''):
     """Restrict any query to one or more search runs (feed files). '' = all runs."""
     runs = [r.strip() for r in (run or '').split(',') if r.strip()]
     if runs:
-        where.append('run IN (' + ','.join('?' * len(runs)) + ')')
+        where.append(prefix + 'run IN (' + ','.join('?' * len(runs)) + ')')
         params += runs
 
 
@@ -783,6 +783,73 @@ def dims(days: int = Query(7, ge=1, le=60), run: str = ''):
         running.append(total)
     out['cumulative'] = {'labels': day_keys, 'values': running}
     return out
+
+
+@app.get('/api/comments/insights')
+def comments_insights(days: int = Query(30, ge=1, le=180), run: str = ''):
+    """Aggregate the scraped comments: volume, sentiment mix, who talks, what about."""
+    import datetime as dt
+    rw, rp = [], []
+    _run_clause(rw, rp, run, prefix='p.')
+    where = ['1=1'] + rw
+    with db.db() as conn:
+        rows = [dict(r) for r in conn.execute(
+            'SELECT c.url, c.author, c.text_raw, c.text_th, c.sentiment, c.posted_iso, '
+            'c.likes, p.platform, p.author AS post_author, p.text_raw AS post_text '
+            'FROM post_comments c JOIN posts p ON p.url = c.url '
+            'WHERE ' + ' AND '.join(where), rp)]
+    if not rows:
+        return {'total': 0, 'posts': 0, 'sentiment': [], 'by_platform': [],
+                'top_commenters': [], 'top_terms': [], 'per_post': [],
+                'window': {'days': days, 'from': '', 'to': ''}}
+
+    stamped = []
+    for r in rows:
+        t = _iso(r['posted_iso'])
+        if t:
+            stamped.append((r, t))
+    end = max((t for _, t in stamped), default=None)
+    end_d = end.date() if end else None
+    start = (end_d - dt.timedelta(days=days - 1)) if end_d else None
+    win = [(r, t) for r, t in stamped if not start or start <= t.date() <= end_d]
+    if not win:
+        win = stamped
+
+    mix = {'pos': 0, 'neu': 0, 'neg': 0, 'none': 0}
+    plat, talkers, posts_map = {}, {}, {}
+    for r, t in win:
+        s_ = r['sentiment'] or ''
+        mix[s_ if s_ in mix else 'none'] += 1
+        p = r['platform'] or 'other'
+        cur = plat.setdefault(p, {'platform': p, 'n': 0, 'pos': 0, 'neg': 0, 'neu': 0})
+        cur['n'] += 1
+        if s_ in ('pos', 'neg', 'neu'):
+            cur[s_] += 1
+        a = (r['author'] or '').strip() or '(ไม่ระบุ)'
+        talker = talkers.setdefault(a, {'author': a, 'n': 0, 'likes': 0})
+        talker['n'] += 1
+        talker['likes'] += r['likes'] or 0
+        pm = posts_map.setdefault(r['url'], {'url': r['url'], 'platform': p,
+                                             'post_author': r['post_author'],
+                                             'text': (r['post_text'] or '')[:120],
+                                             'n': 0, 'pos': 0, 'neg': 0, 'neu': 0})
+        pm['n'] += 1
+        if s_ in ('pos', 'neg', 'neu'):
+            pm[s_] += 1
+
+    texts = [r['text_th'] or r['text_raw'] or '' for r, _ in win]
+    per_post = sorted(posts_map.values(), key=lambda x: x['n'], reverse=True)
+    return {
+        'total': len(win), 'posts': len(posts_map),
+        'sentiment': [{'s': k, 'n': v} for k, v in mix.items() if v],
+        'by_platform': sorted(plat.values(), key=lambda x: x['n'], reverse=True),
+        'top_commenters': sorted(talkers.values(), key=lambda x: (x['n'], x['likes']),
+                                 reverse=True)[:10],
+        'top_terms': top_terms(texts, limit=10),
+        'per_post': per_post[:20],
+        'window': {'days': days,
+                   'from': start.isoformat() if start else '',
+                   'to': end_d.isoformat() if end_d else ''}}
 
 
 @app.get('/api/posts/{post_id:path}/comments')

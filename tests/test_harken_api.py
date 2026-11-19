@@ -296,6 +296,43 @@ def test_static_assets_are_served_without_cdn():
     assert client.get('/static/../api/main.py').status_code == 404
 
 
+def _seed_comments():
+    urls = [p['url'] for p in client.get('/api/posts?limit=2').json()['posts']]
+    with db.db() as conn:
+        for i, (u, sent, who) in enumerate([(urls[0], 'pos', 'somchai'),
+                                            (urls[0], 'neg', 'malee'),
+                                            (urls[1], 'neu', 'somchai')]):
+            conn.execute(
+                "INSERT OR REPLACE INTO post_comments (id, url, author, text_raw, text_th,"
+                " posted_iso, likes, is_author, sentiment) VALUES (?,?,?,?,?,?,?,?,?)",
+                ('%s#i%d' % (u, i), u, who, 'ทดสอบ %d' % i, 'ทดสอบ %d' % i,
+                 '2026-11-18T1%d:00:00' % i, i, 0, sent))
+    return urls
+
+
+def test_comments_insights_aggregates_scraped_comments():
+    _seed_comments()
+    d = client.get('/api/comments/insights').json()
+    assert d['total'] >= 3 and d['posts'] >= 2
+    assert d['top_commenters'][0]['n'] >= 2, 'somchai wrote two of the three comments'
+    assert {p['url'] for p in d['per_post']} == set(_seed_comments())
+    assert sum(s['n'] for s in d['sentiment']) == d['total']
+    assert d['by_platform'] and d['by_platform'][0]['n'] > 0
+    assert d['per_post'] and d['per_post'][0]['n'] == max(p['n'] for p in d['per_post'])
+    assert d['top_commenters'] and d['top_commenters'][0]['n'] >= 1
+    assert isinstance(d['top_terms'], list)
+    # run filter must not leak comments from other runs
+    scoped = client.get('/api/comments/insights?run=threads_run-a').json()
+    assert scoped['total'] <= d['total']
+
+
+def test_comments_insights_survives_an_empty_table():
+    with db.db() as conn:
+        conn.execute('DELETE FROM post_comments')
+    d = client.get('/api/comments/insights').json()
+    assert d['total'] == 0 and d['per_post'] == [] and d['sentiment'] == []
+
+
 def test_comments_carry_sentiment_direction():
     target = client.get('/api/posts?limit=1').json()['posts'][0]['url']
     with db.db() as conn:
