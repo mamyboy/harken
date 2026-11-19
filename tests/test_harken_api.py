@@ -237,6 +237,65 @@ def test_clear_requires_a_scope():
     assert client.post('/api/runs/clear').status_code == 400
 
 
+def test_dims_exposes_every_dimension():
+    d = client.get('/api/dims?days=7').json()
+    assert d['window']['days'] == 7 and d['window']['from'] and d['window']['to']
+    hm = d['heatmap']
+    assert hm['rows'] == ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'] and len(hm['cols']) == 24
+    assert hm['cells'] and all(0 <= c['r'] < 7 and 0 <= c['c'] < 24 and c['n'] > 0 for c in hm['cells'])
+    assert hm['max'] == max(c['n'] for c in hm['cells'])
+    assert d['platform_day']['series'] and len(d['platform_day']['days']) == 7
+    for s in d['platform_day']['series']:
+        assert len(s['values']) == 7 and s['label'] and s['color'].startswith('#')
+    assert len(d['hour_profile']['counts']) == 24
+    assert d['author_scatter'] and {'author', 'posts', 'likes', 'engagement'} <= set(d['author_scatter'][0])
+    tm = d['term_matrix']
+    assert tm['terms'] and len(tm['matrix']) == len(tm['terms'])
+    assert all(len(row) == len(tm['terms']) for row in tm['matrix'])
+    assert sum(p['n'] for p in d['platform_share']) == 5  # fixture has 5 posts
+    assert d['cumulative']['values'][-1] == 5
+    assert d['sentiment_by_platform'] and 'pos' in d['sentiment_by_platform'][0]
+
+
+def test_dims_follows_the_selected_run():
+    a = client.get('/api/dims?run=threads_run-a').json()
+    b = client.get('/api/dims?run=facebook_run-b').json()
+    assert a['cumulative']['values'][-1] == 3
+    assert b['cumulative']['values'][-1] == 2
+    assert [p['platform'] for p in a['platform_share']] == ['threads']
+    assert [p['platform'] for p in b['platform_share']] == ['facebook']
+    assert a['platform_day']['series'][0]['platform'] == 'threads'
+
+
+def test_dims_never_500s_when_empty():
+    import shutil
+    os.makedirs(FEEDS, exist_ok=True)
+    for f in os.listdir(FEEDS):
+        if f.endswith('.jsonl'):
+            shutil.move(os.path.join(FEEDS, f), os.path.join(FEEDS, f + '.bak'))
+    with db.db() as conn:
+        conn.execute('DELETE FROM posts')
+    d = client.get('/api/dims').json()
+    assert d['heatmap']['cells'] == [] and d['heatmap']['max'] == 0
+    assert d['platform_share'] == [] and d['author_scatter'] == []
+    assert d['window']['from'] == '' or d['window']['days'] == 7
+    # restore the fixture data for the remaining tests
+    for f in os.listdir(FEEDS):
+        if f.endswith('.bak'):
+            shutil.move(os.path.join(FEEDS, f), os.path.join(FEEDS, f[:-4]))
+    ingest.ingest(project=FEEDS)
+
+
+def test_static_assets_are_served_without_cdn():
+    js = client.get('/static/charts.js')
+    assert js.status_code == 200
+    assert 'javascript' in js.headers['content-type']
+    assert 'HarkenCharts' in js.text
+    assert 'http://' not in js.text and 'https://' not in js.text.split('\n')[0], 'no CDN imports'
+    assert client.get('/static/nope.js').status_code == 404
+    assert client.get('/static/../api/main.py').status_code == 404
+
+
 def test_comments_carry_sentiment_direction():
     target = client.get('/api/posts?limit=1').json()['posts'][0]['url']
     with db.db() as conn:

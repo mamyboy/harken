@@ -279,6 +279,18 @@ tbody tr:last-child td{border-bottom:0}
 .thread .cm b{color:var(--ink); font-size:12px}
 .thread .cl{font-variant-numeric:tabular-nums}
 .thread .ct{font-size:13px; color:var(--ink-2); line-height:1.55}
+/* ── multi-dimensional charts ─────────────────────────────── */
+.dimsgrid{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px}
+.dimsgrid .chartcell{border:1px solid var(--line); border-radius:12px; padding:11px 12px 8px;
+  background:#FCFDFF; min-width:0}
+.dimsgrid .chartcell.wide{grid-column:1 / -1}
+.charttitle{font-size:11.5px; font-weight:600; color:var(--muted); margin-bottom:6px;
+  letter-spacing:.01em}
+.chartslot{min-width:0; overflow:hidden}
+.chartslot svg{max-width:100%; height:auto}
+@media (max-width: 760px){
+  .dimsgrid{grid-template-columns:minmax(0,1fr)}
+}
 /* ── search-run selector ──────────────────────────────────── */
 .runbar{display:flex; gap:7px; align-items:center; flex-wrap:wrap; padding:11px 16px 12px;
   border-bottom:1px solid var(--line); background:#FAFCFF}
@@ -515,6 +527,41 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       </section>
     </div>
 
+    <!-- ── multi-dimensional charts (data: /api/dims) ───────── -->
+    <section class="card" id="dims-card" aria-label="มิติข้อมูล">
+      <div class="card-head">
+        <h2>มิติข้อมูล</h2>
+        <span class="hint" id="dimsWindow">–</span>
+      </div>
+      <div class="card-body dimsgrid">
+        <div class="chartcell">
+          <div class="charttitle">วัน × ชั่วโมง</div>
+          <div class="chartslot" id="chartHeat"></div>
+        </div>
+        <div class="chartcell">
+          <div class="charttitle">โพสต์รายวัน แยกแพลตฟอร์ม</div>
+          <div class="chartslot" id="chartStack"></div>
+        </div>
+        <div class="chartcell">
+          <div class="charttitle">สัดส่วนแพลตฟอร์ม</div>
+          <div class="chartslot" id="chartDonut"></div>
+        </div>
+        <div class="chartcell">
+          <div class="charttitle">ผู้โพสต์: โพสต์ vs ไลก์</div>
+          <div class="chartslot" id="chartScatter"></div>
+        </div>
+        <div class="chartcell wide">
+          <div class="charttitle">โพสต์สะสม + ชั่วโมงที่คึกคัก</div>
+          <div class="chartslot" id="chartArea"></div>
+          <div class="chartslot" id="chartHours"></div>
+        </div>
+        <div class="chartcell">
+          <div class="charttitle">อารมณ์แยกแพลตฟอร์ม</div>
+          <div class="chartslot" id="chartSentPlat"></div>
+        </div>
+      </div>
+    </section>
+
     <div class="grid-2">
       <section class="card" id="issues-card" aria-label="ประเด็นที่กำลังมาแรง">
         <div class="card-head"><h2>ประเด็นที่กำลังมาแรง</h2>
@@ -611,6 +658,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
   </div>
 </aside>
 
+<script src="/static/charts.js"></script>
 <script>
 (function(){
   'use strict';
@@ -624,6 +672,9 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
   const PLAT = {threads:'Threads', facebook:'Facebook', fbfeed:'Facebook (ฟีด)', tiktok:'TikTok',
                 x:'X (Twitter)', twitter:'X (Twitter)', instagram:'Instagram', ig:'Instagram',
                 youtube:'YouTube', pantip:'Pantip', lemon8:'Lemon8', other:'อื่น ๆ'};
+  const PLATCOL = {facebook:'#1877F2', fbfeed:'#0A57C4', threads:'#111111', tiktok:'#00F2EA',
+                   x:'#0F1419', twitter:'#0F1419', instagram:'#E1306C', ig:'#E1306C',
+                   youtube:'#FF0000', pantip:'#7B2D8E', lemon8:'#FFC300', other:'#8C99B4'};
   const S = {q:'', platform:'', from:'', to:'', sort:'date', page:1, per:25, total:0,
              open:new Set(), gran:'day', trend:null, terms:[], sentiment:'', issues:[], run:''};
   const num = v => (v === null || v === undefined || v === '') ? '0' : Number(v).toLocaleString('th-TH');
@@ -684,7 +735,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       S.page = 1;
       const cr = $('#clearRun');
       if (cr) cr.disabled = !S.run;
-      loadRuns(); loadPosts(); loadStats(); loadTrend(); loadIssues();
+      loadRuns(); loadPosts(); loadStats(); loadTrend(); loadIssues(); loadDims();
     }));
     const cr = $('#clearRun');
     if (cr) {
@@ -728,6 +779,37 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       const ca = $('#clearAll');
       if (ca) ca.disabled = false;
     }
+  }
+
+  /* ── multi-dimensional charts ───────────────────────────── */
+  async function loadDims(){
+    if (!window.HarkenCharts) return;
+    let d;
+    try {
+      d = await fetch('/api/dims?days=7' + (S.run ? '&run=' + encodeURIComponent(S.run) : ''))
+        .then(r => r.json());
+    } catch (e) { return; }
+    const win = d.window || {};
+    const wEl = $('#dimsWindow');
+    if (wEl) wEl.textContent = (win.from && win.to)
+      ? ('ช่วง ' + win.from.slice(5).replace('-', '/') + ' – ' + win.to.slice(5).replace('-', '/') + ' · ' + win.days + ' วัน')
+      : 'ยังไม่มีข้อมูล';
+
+    HarkenCharts.render('heatmap', '#chartHeat', d.heatmap);
+    HarkenCharts.render('stackedBars', '#chartStack', d.platform_day);
+    HarkenCharts.render('donut', '#chartDonut', (d.platform_share || []).map(p => ({label: p.label || p.platform, n: p.n})),
+      {colors: (d.platform_share || []).map(p => (PLATCOL[p.platform] || '#8C99B4'))});
+    HarkenCharts.render('scatter', '#chartScatter', d.author_scatter);
+    HarkenCharts.render('area', '#chartArea', d.cumulative);
+    HarkenCharts.render('hbars', '#chartHours', (d.hour_profile || {hours: [], counts: []}).counts
+      .map((n, i) => ({label: (d.hour_profile.hours[i] || '') + ':00', value: n}))
+      .filter(x => x.value > 0).sort((a, b) => b.value - a.value).slice(0, 5),
+      {labelChars: 6, labelW: 54});
+    HarkenCharts.render('hbars', '#chartSentPlat', (d.sentiment_by_platform || []).map(p => ({
+      label: (p.label || p.platform) + ' · บวก ' + p.pos, value: p.pos, color: 'var(--pos)'
+    })).concat((d.sentiment_by_platform || []).map(p => ({
+      label: (p.label || p.platform) + ' · ลบ ' + p.neg, value: p.neg, color: 'var(--neg)'
+    }))), {labelChars: 22, labelW: 132});
   }
 
   /* ── stats / hero / sentiment / authors / terms ─────────── */
@@ -1086,7 +1168,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
 
   async function refresh(){
     try {
-      await Promise.all([loadStats(), loadTrend(), loadIssues(), loadPosts(), loadHealth(), loadRuns()]);
+      await Promise.all([loadStats(), loadTrend(), loadIssues(), loadPosts(), loadHealth(), loadRuns(), loadDims()]);
       renderChips();
       $('#banner').classList.remove('on');
     } catch (e) {
@@ -1246,6 +1328,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
   setInterval(() => { loadPosts().catch(() => {}); }, 8000);
   setInterval(() => {
     loadStats().catch(() => {}); loadTrend().catch(() => {}); loadIssues().catch(() => {});
+    loadDims().catch(() => {});
   }, 60000);
 })();
 </script>

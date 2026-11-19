@@ -634,6 +634,153 @@ def clear_runs(run: str = '', all: int = 0, keep_files: int = 0):
             'comments_deleted': comments, 'archived': archived}
 
 
+@app.get('/api/dims')
+def dims(days: int = Query(7, ge=1, le=60), run: str = ''):
+    """Every cross-dimension the dashboard can chart, in one request.
+
+    heatmap (weekday x hour), per-day per-platform counts, hour profile, author
+    scatter, term co-occurrence, sentiment/engagement per platform, cumulative
+    and platform share. Window is anchored on the newest post, like /api/trend.
+    """
+    import datetime as dt
+
+    def skeleton(days_):
+        return {'window': {'days': days_, 'from': '', 'to': ''},
+                'heatmap': {'rows': ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'],
+                            'cols': ['%02d' % h for h in range(24)], 'cells': [], 'max': 0},
+                'platform_day': {'days': [], 'series': []},
+                'hour_profile': {'hours': ['%02d' % h for h in range(24)], 'counts': [0] * 24},
+                'author_scatter': [], 'term_matrix': {'terms': [], 'matrix': []},
+                'sentiment_by_platform': [], 'engagement_by_platform': [],
+                'cumulative': {'labels': [], 'values': []}, 'platform_share': []}
+
+    rw, rp = [], []
+    _run_clause(rw, rp, run)
+    with db.db() as conn:
+        rows = [dict(r) for r in conn.execute(
+            'SELECT platform, author, text_th, text_raw, sentiment, posted_iso, '
+            'likes, replies, reposts FROM posts '
+            + ('WHERE ' + ' AND '.join(rw) if rw else ''), rp)]
+
+    stamped = [(r, _iso(r['posted_iso'])) for r in rows]
+    stamped = [(r, t) for r, t in stamped if t]
+    if not stamped:
+        return skeleton(days)
+
+    end = max(t for _, t in stamped).date()
+    start = end - dt.timedelta(days=days - 1)
+    win = [(r, t) for r, t in stamped if start <= t.date() <= end]
+    out = skeleton(days)
+    out['window'] = {'days': days, 'from': start.isoformat(), 'to': end.isoformat()}
+
+    # ── heatmap: weekday (จ..อา) x hour ──────────────────────
+    cells, grid = [], {}
+    for r, t in win:
+        k = (t.weekday(), t.hour)
+        grid[k] = grid.get(k, 0) + 1
+    for (wd, hh), n in sorted(grid.items()):
+        cells.append({'r': wd, 'c': hh, 'n': n})
+    out['heatmap']['cells'] = cells
+    out['heatmap']['max'] = max(grid.values()) if grid else 0
+
+    # ── day axis ─────────────────────────────────────────────
+    dates = [start + dt.timedelta(days=i) for i in range(days)]
+    day_keys = [d.strftime('%m-%d') for d in dates]
+    out['platform_day']['days'] = day_keys
+
+    per_day = {}
+    for r, t in win:
+        per_day.setdefault((r['platform'] or 'other', t.date()), 0)
+        per_day[(r['platform'] or 'other', t.date())] += 1
+
+    plat_label, plat_color = {}, {}
+    try:
+        import sys as _sys
+        scripts = os.path.expanduser('~/.hermes/skills/productivity/social-listening-merge/scripts')
+        if scripts not in _sys.path:
+            _sys.path.insert(0, scripts)
+        import platforms as _platforms
+        plat_label = {p['id']: p['label'] for p in _platforms.PLATFORMS}
+        plat_color = {p['id']: p['color'] for p in _platforms.PLATFORMS}
+    except Exception:
+        pass
+
+    platforms_in = sorted({r['platform'] or 'other' for r, _ in win})
+    out['platform_day']['series'] = [
+        {'platform': p, 'label': plat_label.get(p, p), 'color': plat_color.get(p, '#8C99B4'),
+         'values': [per_day.get((p, d), 0) for d in dates]}
+        for p in platforms_in]
+
+    # ── hour profile ─────────────────────────────────────────
+    hours = [0] * 24
+    for r, t in win:
+        hours[t.hour] += 1
+    out['hour_profile']['counts'] = hours
+
+    # ── authors ──────────────────────────────────────────────
+    authors = {}
+    for r, t in win:
+        a = (r['author'] or '').strip() or '(ไม่ระบุ)'
+        cur = authors.setdefault(a, {'author': a, 'posts': 0, 'likes': 0, 'replies': 0,
+                                     'engagement': 0, 'mix': {'pos': 0, 'neu': 0, 'neg': 0, 'none': 0}})
+        cur['posts'] += 1
+        cur['likes'] += r['likes'] or 0
+        cur['replies'] += r['replies'] or 0
+        cur['engagement'] += (r['likes'] or 0) + (r['replies'] or 0) + (r['reposts'] or 0)
+        s = r['sentiment'] or ''
+        cur['mix'][s if s in cur['mix'] else 'none'] += 1
+    author_rows = []
+    for cur in authors.values():
+        mix = cur.pop('mix')
+        cur['sentiment'] = max(mix, key=lambda k: mix[k]) if any(mix.values()) else 'none'
+        author_rows.append(cur)
+    author_rows.sort(key=lambda x: (x['engagement'], x['posts']), reverse=True)
+    out['author_scatter'] = author_rows[:20]
+
+    # ── term co-occurrence ───────────────────────────────────
+    texts = [r['text_th'] or r['text_raw'] or '' for r, _ in win]
+    terms = [t['term'] for t in top_terms(texts, limit=8)]
+    matrix = []
+    for a in terms:
+        row = []
+        for b in terms:
+            n = sum(1 for txt in texts if a.lower() in txt.lower() and b.lower() in txt.lower())
+            row.append(n)
+        matrix.append(row)
+    out['term_matrix'] = {'terms': terms, 'matrix': matrix}
+
+    # ── per-platform sentiment / engagement / share ──────────
+    by_plat = {}
+    for r, t in win:
+        p = r['platform'] or 'other'
+        cur = by_plat.setdefault(p, {'platform': p, 'label': plat_label.get(p, p),
+                                     'pos': 0, 'neu': 0, 'neg': 0, 'none': 0, 'n': 0,
+                                     'likes': 0, 'replies': 0, 'reposts': 0})
+        cur['n'] += 1
+        s = r['sentiment'] or ''
+        cur[s if s in ('pos', 'neu', 'neg') else 'none'] += 1
+        cur['likes'] += r['likes'] or 0
+        cur['replies'] += r['replies'] or 0
+        cur['reposts'] += r['reposts'] or 0
+    plats = sorted(by_plat.values(), key=lambda x: x['n'], reverse=True)
+    out['sentiment_by_platform'] = [
+        {k: v for k, v in p.items() if k in ('platform', 'label', 'pos', 'neu', 'neg', 'none')}
+        for p in plats]
+    out['engagement_by_platform'] = [
+        {k: v for k, v in p.items() if k in ('platform', 'label', 'likes', 'replies', 'reposts')}
+        for p in plats]
+    out['platform_share'] = [{'platform': p['platform'], 'label': p['label'], 'n': p['n']}
+                             for p in plats]
+
+    # ── cumulative ───────────────────────────────────────────
+    running, total = [], 0
+    for d in dates:
+        total += sum(1 for _, t in win if t.date() == d)
+        running.append(total)
+    out['cumulative'] = {'labels': day_keys, 'values': running}
+    return out
+
+
 @app.get('/api/posts/{post_id:path}/comments')
 def post_comments(post_id: str):
     with db.db() as conn:
@@ -662,3 +809,15 @@ def vibrant():
 @app.get('/favicon.ico')
 def favicon():
     return JSONResponse({}, status_code=204)
+
+
+@app.get('/static/{name}')
+def static_file(name: str):
+    """Serve hand-written assets (charts.js) — no CDN, no build step."""
+    path = os.path.normpath(os.path.join(STATIC, name))
+    if not path.startswith(STATIC) or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail='not found')
+    ctype = ('application/javascript' if name.endswith('.js')
+             else 'text/css' if name.endswith('.css') else 'application/octet-stream')
+    return FileResponse(path, media_type=ctype,
+                        headers={'Cache-Control': 'no-store, must-revalidate'})
