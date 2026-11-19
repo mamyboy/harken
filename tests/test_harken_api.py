@@ -523,15 +523,18 @@ def test_news_filters_and_never_enters_social_analytics():
                for r in sentiment.pending(limit=200))
 
 
-def test_hidden_noise_never_counts_news():
+def test_news_obeys_the_noise_audit_but_never_counts_as_social_noise():
+    """The audit marks sorry news rows noise=1: they leave the card, stay recoverable."""
     before = client.get('/api/stats').json()['hidden_noise']
     with db.db() as conn:
         conn.execute("UPDATE posts SET noise=1 WHERE kind='news'")
     try:
         after = client.get('/api/stats').json()
         assert after['hidden_noise'] == before      # news is not social noise
-        assert after['total'] == 5
-        assert client.get('/api/news').json()['total'] == 2   # still listed, never hidden
+        assert after['total'] == 5                  # social KPIs untouched
+        assert after['news_total'] == 0
+        assert client.get('/api/news').json()['total'] == 0
+        assert client.get('/api/news?include_noise=1').json()['total'] == 2
     finally:
         with db.db() as conn:
             conn.execute("UPDATE posts SET noise=0 WHERE kind='news'")

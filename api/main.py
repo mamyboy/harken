@@ -122,10 +122,12 @@ def _split_headline(body):
 @app.get('/api/news')
 def news(q: str = '', source: str = '', days: int = Query(30, ge=1, le=365),
          limit: int = Query(50, ge=1, le=300), offset: int = Query(0, ge=0),
-         sort: str = 'newest'):
+         sort: str = 'newest', include_noise: int = 0):
     """Web news-search results — a separate dataset from the social listener."""
     import datetime as dt
     where, params = ["COALESCE(kind,'social') = 'news'"], []
+    if not include_noise:
+        where.append('COALESCE(noise,0) = 0')
     if q:
         where.append('(text_raw LIKE ? OR COALESCE(text_th,\'\') LIKE ? OR author LIKE ?)')
         params += ['%' + q + '%'] * 3
@@ -243,8 +245,13 @@ def stats(run: str = '', include_noise: int = 0):
             'COALESCE(SUM(reposts),0) rp FROM posts ' + W, rp).fetchone()
         texts = [r['text_th'] or r['text_raw'] or '' for r in conn.execute(
             'SELECT text_th, text_raw FROM posts ' + W + ' LIMIT 800', rp)]
+        # a news-only run still deserves a term cloud: headlines are written, not chatted
+        texts += [r['text_raw'] or '' for r in conn.execute(
+            "SELECT text_raw FROM posts WHERE COALESCE(kind,'social') = 'news' "
+            "AND COALESCE(noise,0) = 0 LIMIT 400")]
         news_total = conn.execute(
-            "SELECT COUNT(*) c FROM posts WHERE COALESCE(kind,'social') = 'news'").fetchone()['c']
+            "SELECT COUNT(*) c FROM posts WHERE COALESCE(kind,'social') = 'news' "
+            "AND COALESCE(noise,0) = 0").fetchone()['c']
         hidden_noise = conn.execute(
             "SELECT COUNT(*) c FROM posts WHERE COALESCE(noise,0) = 1 "
             "AND COALESCE(kind,'social') = 'social'"
@@ -269,6 +276,8 @@ the and for with that this from have has are was were you your our their his her
 ครั้ง แล้ว ค่อย ล่าสุด มาตรา จริง แบบ นะ ค่ะ ครับ จ้า 555 5555 ตัว ใจ ดี ยังไง ต่าง ที่สุด อยาก รู้ เห็น
 ควร ต้อง ไม่ ไม่ได้ อย่าง หลาย บอก กล่าว พร้อม ถ้า หาก เพราะ ดังนั้น แต่ถ้า เอา ให้ ได้ แต่ เฉย ๆ
 วันนี้ เมื่อวาน พรุ่งนี้ ตอนนี้ ตอน ช่วง เวลา ปี เดือน สัปดาห์ ชั่วโมง นาที
+มกราคม กุมภาพันธ์ มีนาคม เมษายน พฤษภาคม มิถุนายน กรกฎาคม สิงหาคม กันยายน ตุลาคม พฤศจิกายน ธันวาคม
+ขีดเส้น อัปเดต เปิดเผย เผย ประกาศ เตือน ระทึก ล่าสุดแล้ว วันเดียว
 """.split())
 
 
