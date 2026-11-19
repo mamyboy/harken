@@ -24,9 +24,21 @@ UA = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit
 PROJECT = os.path.expanduser('~/Projects/harken')
 
 
-def fetch(url, timeout=25):
-    req = urllib.request.Request(url, headers=UA)
-    return urllib.request.urlopen(req, timeout=timeout).read()
+def fetch(url, timeout=25, tries=3):
+    """Google News intermittently answers with an empty feed; retry before believing it."""
+    import time
+    last = None
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers=UA)
+            body = urllib.request.urlopen(req, timeout=timeout).read()
+            if body and len(body) > 400:
+                return body
+            last = RuntimeError('empty feed (%d bytes)' % len(body or b''))
+        except Exception as e:
+            last = e
+        time.sleep(1.5 * (i + 1))
+    raise last
 
 
 def iso(pub):
@@ -51,7 +63,28 @@ def key(title):
 def google_news(q, days):
     url = ('https://news.google.com/rss/search?q=' + urllib.parse.quote(q) +
            '&hl=th&gl=TH&ceid=TH:th')
-    root = ET.fromstring(fetch(url))
+    # an empty-but-valid RSS document is a normal Google throttle answer: back off, then
+    # try the date-scoped variant of the same query before admitting defeat.
+    import time
+    variants = [url, url + '&q=' + urllib.parse.quote(q + ' when:' + str(days) + 'd')]
+    root, items = None, []
+    for attempt in range(4):
+        for v in variants:
+            try:
+                root = ET.fromstring(fetch(v))
+            except Exception:
+                root = None
+                continue
+            items = root.findall('.//item') if root is not None else []
+            if items:
+                break
+        if items:
+            break
+        time.sleep(3 + 4 * attempt)
+    if not items:
+        raise RuntimeError('Google News returned no items for %r after 4 tries' % q)
+    root = ET.fromstring('<rss><channel>' + ''.join(
+        ET.tostring(i, encoding='unicode') for i in items) + '</channel></rss>')
     out = []
     for it in root.findall('.//item'):
         title = clean(it.findtext('title') or '')

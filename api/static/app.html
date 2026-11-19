@@ -571,7 +571,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
           <div><span class="k">ไลก์รวม</span><span class="v num" id="heroEng">–</span></div>
           <div><span class="k">ผู้โพสต์</span><span class="v num" id="heroAuthors">–</span></div>
         </div>
-        <div class="hero-period" id="heroPeriod">ช่วงข้อมูล 7 วันล่าสุด</div>
+        <div class="hero-period" id="heroPeriod">ทุกช่วงเวลาที่เก็บได้</div>
       </section>
 
       <section class="card" aria-label="องค์ประกอบประเด็น">
@@ -1196,6 +1196,15 @@ async function loadNews(append){
     const eng = st.engagement || {likes:0, replies:0, reposts:0};
     $('#heroEng').textContent = num(eng.likes);
     const hc = $('#heroComments'); if (hc) hc.textContent = num(st.comments || 0);
+    const hp = $('#heroPeriod');
+    if (hp){
+      const days = (st.by_day || []).filter(x => x && x.d).sort((a, b) => a.d.localeCompare(b.d));
+      const last = days.length ? days[days.length - 1].d : '';
+      const cut = last ? new Date(new Date(last + 'T00:00:00').getTime() - 6 * 864e5)
+        .toISOString().slice(0, 10) : '';
+      const recent = days.filter(x => x.d >= cut).reduce((a, b) => a + (b.n || 0), 0);
+      hp.textContent = 'ทุกช่วงเวลาที่เก็บได้' + (last ? ' · ' + cut + ' ถึง ' + last + ' มี ' + num(recent) + ' โพสต์' : '');
+    }
     const ha = $('#heroAuthors'); if (ha) ha.textContent = num((st.top_authors || []).length);
     const cnb = $('#clearNews'); if (cnb) cnb.disabled = !(st.news_total > 0);
 
