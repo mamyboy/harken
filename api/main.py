@@ -277,7 +277,7 @@ the and for with that this from have has are was were you your our their his her
 ควร ต้อง ไม่ ไม่ได้ อย่าง หลาย บอก กล่าว พร้อม ถ้า หาก เพราะ ดังนั้น แต่ถ้า เอา ให้ ได้ แต่ เฉย ๆ
 วันนี้ เมื่อวาน พรุ่งนี้ ตอนนี้ ตอน ช่วง เวลา ปี เดือน สัปดาห์ ชั่วโมง นาที
 มกราคม กุมภาพันธ์ มีนาคม เมษายน พฤษภาคม มิถุนายน กรกฎาคม สิงหาคม กันยายน ตุลาคม พฤศจิกายน ธันวาคม
-ขีดเส้น อัปเดต เปิดเผย เผย ประกาศ เตือน ระทึก ล่าสุดแล้ว วันเดียว
+ขีดเส้น อัปเดต เปิดเผย เผย ประกาศ เตือน ระทึก ล่าสุดแล้ว วันเดียว ข่าว ข่าววันนี้ คลิป
 """.split())
 
 
@@ -573,6 +573,36 @@ def issues(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20)
             best['docs'] |= nd
         else:
             clusters.append({'terms': [term], 'aliases': [], 'docs': set(nd)})
+
+    # Thai stories use several words for one event: fold synonyms so the card shows one
+    # issue per story instead of five near-duplicates (น้ำท่วม / น้ำป่า / อุทกภัย ...)
+    SYN = [
+        ('น้ำท่วม', {'น้ำท่วม', 'น้ำป่า', 'น้ำหลาก', 'อุทกภัย', 'น้ำท่วมฉับพลัน', 'น้ำป่าไหลหลาก'}),
+        ('ฝนตกหนัก', {'ฝนตก', 'ฝนตกหนัก', 'ฝนฟ้าคะนอง'}),
+        ('ราคาทอง', {'ราคาทอง', 'ราคาทองวันนี้', 'ทองคำ', 'ทองแท่ง', 'ทองรูปพรรณ'}),
+        ('สารหนู', {'สารหนู', 'โลหะหนัก', 'สารปนเปื้อน'}),
+    ]
+
+    def canonical(term):
+        t = (term or '').lstrip('#').strip().lower()
+        for label, members in SYN:
+            if t in {m.lower() for m in members}:
+                return label
+        return None
+
+    folded = {}
+    for c in clusters:
+        key = canonical(c['terms'][0]) or ('term:' + c['terms'][0].lower())
+        if key in folded:
+            folded[key]['aliases'].extend(c['terms'] + c['aliases'])
+            folded[key]['docs'] |= c['docs']
+        else:
+            folded[key] = {'terms': c['terms'][:], 'aliases': c['aliases'][:], 'docs': set(c['docs']),
+                           'key': key}
+    clusters = list(folded.values())
+    for c in clusters:
+        if c.get('key') in {label for label, _ in SYN}:
+            c['terms'] = [c['key']] + [t for t in c['terms'] if t != c['key']]
 
     term_n = {t['term']: t['n'] for t in cand}
     out = []
