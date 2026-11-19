@@ -95,6 +95,50 @@ def _comment_belongs(ctext, post_text):
     return any(w in ctext.lower() for w in words)
 
 
+RUN_STABLE_SECONDS = 60      # a file untouched this long is treated as finished
+
+
+def fingerprint():
+    """Cheap stat-only signature of the feed directory (no file reads)."""
+    parts = []
+    for f in sorted(glob.glob(os.path.join(PROJECT, '*.jsonl'))):
+        if f.endswith('-cand.jsonl'):
+            continue
+        try:
+            st = os.stat(f)
+        except OSError:
+            continue
+        parts.append('%s:%s:%s' % (os.path.basename(f), st.st_size, int(st.st_mtime)))
+    return hashlib.sha256('|'.join(parts).encode()).hexdigest()[:16]
+
+
+def _update_run_status(conn, run_key, platform, path, posts_seen, comments_stored,
+                       comments_reported, now):
+    age = time.time() - os.path.getmtime(path)
+    size = os.path.getsize(path)
+    if size == 0:
+        status, note = 'empty', 'ไฟล์ว่าง — scraper อาจถูกบล็อกหรือไม่พบผล'
+    elif age < RUN_STABLE_SECONDS:
+        status, note = 'partial', 'สแครปперอาจยังเขียนไฟล์อยู่'
+    else:
+        status, note = 'complete', ''
+    row = conn.execute('SELECT first_iso FROM run_status WHERE run = ?', (run_key,)).fetchone()
+    first = row['first_iso'] if row and row['first_iso'] else now
+    conn.execute(
+        '''INSERT INTO run_status (run, platform, file, status, posts_seen, comments_stored,
+                                  comments_reported, note, first_iso, last_iso, ready_iso)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(run) DO UPDATE SET
+             platform=excluded.platform, file=excluded.file, status=excluded.status,
+             posts_seen=excluded.posts_seen, comments_stored=excluded.comments_stored,
+             comments_reported=excluded.comments_reported, note=excluded.note,
+             last_iso=excluded.last_iso,
+             ready_iso=CASE WHEN excluded.status = 'complete' THEN excluded.last_iso
+                            ELSE run_status.ready_iso END''',
+        (run_key, platform, os.path.basename(path), status, posts_seen, comments_stored,
+         comments_reported, note, first, now, now if status == 'complete' else None))
+
+
 def _metrics(p):
     """likes / replies / reposts / shares from any scraper's metric names."""
     m = p.get('metrics') if isinstance(p.get('metrics'), dict) else {}
@@ -145,6 +189,7 @@ def ingest(project=PROJECT, verbose=False):
             files += 1
             platform = _platform(path)
             run_key = _run_key(path)
+            run_posts = run_comments = run_reported = 0
             for line in open(path, encoding='utf-8'):
                 line = line.strip()
                 if not line:
@@ -175,16 +220,19 @@ def ingest(project=PROJECT, verbose=False):
                     p.get('match') or '',
                     p.get('sentiment') or '',
                     run_key,
-                    now,
-                    now,
+                    now,   # fetched_at
+                    now,   # updated_at
+                    now,   # observed_at
+                    now,   # first_seen
                     url,
                 )
                 cur = conn.execute('SELECT 1 FROM posts WHERE url = ?', (url,)).fetchone()
                 conn.execute(
                     """INSERT INTO posts
                        (platform, author, text_raw, text_th, posted_at, posted_iso, likes, replies,
-                        reposts, shares, is_reply, query, relevance, sentiment, run, fetched_at, updated_at, url)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        reposts, shares, is_reply, query, relevance, sentiment, run, fetched_at, updated_at,
+                        observed_at, first_seen, url)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                        ON CONFLICT(url) DO UPDATE SET
                          platform=excluded.platform, author=excluded.author, text_raw=excluded.text_raw,
                          text_th=CASE WHEN excluded.text_th <> '' AND excluded.text_th <> excluded.text_raw
@@ -199,13 +247,17 @@ def ingest(project=PROJECT, verbose=False):
                          sentiment=CASE WHEN excluded.sentiment <> '' THEN excluded.sentiment
                                         ELSE posts.sentiment END,
                          run=CASE WHEN COALESCE(posts.run,'') = '' THEN excluded.run ELSE posts.run END,
-                         updated_at=excluded.updated_at""",
+                         updated_at=excluded.updated_at,
+                         observed_at=excluded.observed_at,
+                         first_seen=COALESCE(posts.first_seen, excluded.first_seen)""",
                     row,
                 )
                 if cur:
                     updated += 1
                 else:
                     added += 1
+                run_posts += 1
+                run_reported += replies or 0
 
                 for i, c in enumerate((p.get('comments') or [])[:MAX_COMMENTS_PER_POST]):
                     curl = c.get('url') or f'{url}#c{i}'
@@ -228,7 +280,10 @@ def ingest(project=PROJECT, verbose=False):
                          1 if c.get('is_author') else 0),
                     )
                     comments += 1
+                    run_comments += 1
 
+            _update_run_status(conn, run_key, platform, path, run_posts,
+                               run_comments, run_reported, now)
         conn.execute('INSERT INTO ingest_log (files, added, updated, at) VALUES (?,?,?,?)',
                      (files, added, updated, now))
 

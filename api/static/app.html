@@ -279,6 +279,32 @@ tbody tr:last-child td{border-bottom:0}
 .thread .cm b{color:var(--ink); font-size:12px}
 .thread .cl{font-variant-numeric:tabular-nums}
 .thread .ct{font-size:13px; color:var(--ink-2); line-height:1.55}
+/* ── collection status + review queue ─────────────────────── */
+.covrow{display:grid; grid-template-columns:minmax(0,1fr) 92px 54px minmax(0,1.25fr);
+  gap:10px; align-items:center; font-size:12px; padding:8px 2px; border-top:1px solid var(--line)}
+.covrow:first-child{border-top:0}
+.covhead{font-size:10.5px; color:var(--muted-2); text-transform:none; letter-spacing:.02em}
+.covrow .nm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-2)}
+.covrow .num{font-variant-numeric:tabular-nums; text-align:right; color:var(--ink);
+  display:block; white-space:nowrap}
+.covrow .meta{display:flex; flex-direction:column; gap:3px; min-width:0}
+.covrow .meta small{color:var(--muted-2); font-size:10.5px; text-align:right}
+.st{display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:3px 9px;
+  border-radius:999px; border:1px solid var(--line); white-space:nowrap; font-weight:500}
+.st.complete{background:#E9F7EF; border-color:#BFE5CD; color:#1B6B3A}
+.st.partial{background:#FFF6E5; border-color:#F0D9A8; color:#8A5A00}
+.st.empty,.st.missing{background:#FDECEC; border-color:#F3C9C9; color:#9B2C2C}
+.st.unknown{background:#F2F4F8; color:var(--muted)}
+.revitem{border:1px solid var(--line); border-radius:10px; padding:9px 11px; margin-top:8px}
+.revitem .rt{font-size:12px; color:var(--ink-2); line-height:1.5}
+.revitem .rm{display:flex; gap:8px; align-items:center; margin-top:7px; flex-wrap:wrap;
+  font-size:10.5px; color:var(--muted-2)}
+.revitem .acts{margin-left:auto; display:flex; gap:6px}
+.mini{font:inherit; font-size:11px; padding:3px 10px; border-radius:999px; cursor:pointer;
+  border:1px solid var(--line); background:#fff; color:var(--ink-2)}
+.mini.ok{border-color:#BFE5CD; background:#E9F7EF; color:#1B6B3A}
+.mini.no{border-color:#F3C9C9; background:#FDECEC; color:#9B2C2C}
+
 /* ── comment summary + rankings ───────────────────────────── */
 .sumlist{display:flex; flex-direction:column; gap:9px}
 .sumlist .sumitem{display:flex; gap:9px; align-items:flex-start; font-size:12.5px;
@@ -610,6 +636,24 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       </section>
     </div>
 
+    <section class="card" id="cov-card" aria-label="สถานะการเก็บข้อมูล">
+      <div class="card-head"><h2>สถานะการเก็บข้อมูล</h2>
+        <span class="hint" id="revBadge">–</span></div>
+      <div class="card-body">
+        <div class="covrow covhead">
+          <span>ชุดการค้นหา</span><span>สถานะ</span><span>โพสต์</span>
+          <span>คอมเมนต์ที่เก็บ / ที่แพลตฟอร์มรายงาน</span>
+        </div>
+        <div id="covList"><div class="empty">–</div></div>
+      </div>
+    </section>
+
+    <section class="card" id="review-card" aria-label="คิวทบทวน" hidden>
+      <div class="card-head"><h2>รอทบทวน</h2>
+        <span class="hint" id="reviewMeta">–</span></div>
+      <div class="card-body"><div id="reviewList"></div></div>
+    </section>
+
     <div class="grid-2">
       <section class="card" id="issues-card" aria-label="ประเด็นที่กำลังมาแรง">
         <div class="card-head"><h2>ประเด็นที่กำลังมาแรง</h2>
@@ -652,6 +696,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       <div class="runactions">
         <button type="button" class="btn danger" id="clearRun" disabled>ล้างชุดที่เลือก</button>
         <button type="button" class="btn danger" id="clearAll">ล้างทั้งหมด</button>
+        <button type="button" class="btn ghost" id="reviewToggle" hidden>รอทบทวน <b id="reviewCount">0</b></button>
         <button type="button" class="btn ghost" id="noiseToggle" aria-pressed="false"
                 title="โพสต์ที่ระบบวิเคราะห์ว่าโฆษณา/ไม่เกี่ยวข้อง">ซ่อนโพสต์ไม่เกี่ยวข้อง <b id="noiseCount">–</b></button>
         <span class="hint" id="clearMsg" role="status" aria-live="polite"></span>
@@ -788,7 +833,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       const cr = $('#clearRun');
       if (cr) cr.disabled = !S.run;
       loadRuns(); loadPosts(); loadStats(); loadTrend(); loadIssues(); loadDims();
-      loadSummary(); loadRankings();
+      loadSummary(); loadRankings(); loadCoverage(); loadReview();
     }));
     const cr = $('#clearRun');
     if (cr) {
@@ -833,6 +878,66 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       const ca = $('#clearAll');
       if (ca) ca.disabled = false;
     }
+  }
+
+  /* ── collection status: can the team trust this number? ──── */
+  const STLABEL = {complete:'ครบ', partial:'กำลังเก็บ', empty:'ว่าง/ถูกบล็อก',
+                   missing:'ไม่มีไฟล์', unknown:'ไม่ทราบ'};
+  async function loadCoverage(){
+    const host = $('#covList');
+    if (!host) return;
+    let d;
+    try { d = await fetch('/api/runs').then(r => r.json()); } catch (e) { return; }
+    const runs = d.runs || [];
+    if (!runs.length) { host.innerHTML = '<div class="empty">ยังไม่มีชุดการค้นหา</div>'; return; }
+    host.innerHTML = runs.map(r => {
+      const st = r.status || 'unknown';
+      const cov = r.comments_coverage;
+      const plats = (r.platforms || []).map(p => PLAT[p] || p).join(' · ');
+      const name = (r.label || r.run) + (plats ? ' · ' + plats : '');
+      let covTxt, caveat = r.note || '';
+      if (!r.comments_reported) {
+        covTxt = num(r.comments_stored) + ' / –';
+        caveat = caveat || 'โพสต์ไม่รายงานจำนวนคอมเมนต์';
+      } else if (r.comments_stored > r.comments_reported) {
+        covTxt = num(r.comments_stored) + ' / ' + num(r.comments_reported);
+        caveat = 'แพลตฟอร์มรายงานต่ำกว่าที่เก็บได้';
+      } else {
+        covTxt = num(r.comments_stored) + ' / ' + num(r.comments_reported)
+          + ' (' + cov + '%)';
+      }
+      return '<div class="covrow">'
+        + '<span class="nm" title="' + esc(name) + '">' + esc(name) + '</span>'
+        + '<span><span class="st ' + esc(st) + '">' + esc(STLABEL[st] || st) + '</span></span>'
+        + '<span class="num">' + num(r.posts) + '</span>'
+        + '<span class="meta"><span class="num">' + covTxt + '</span>'
+        + (caveat ? '<small>' + esc(caveat) + '</small>' : '') + '</span>'
+        + '</div>';
+    }).join('');
+  }
+
+  /* ── review queue: a human decision overrides the model ──── */
+  async function loadReview(){
+    const card = $('#review-card'), host = $('#reviewList'), meta = $('#reviewMeta');
+    const chip = $('#reviewToggle'), cnt = $('#reviewCount');
+    let d;
+    try { d = await fetch('/api/review?limit=20').then(r => r.json()); } catch (e) { return; }
+    const n = d.pending || 0;
+    if (cnt) cnt.textContent = num(n);
+    if (chip) chip.hidden = n === 0;
+    if (!card || card.hidden) return;
+    if (meta) meta.textContent = n ? (num(n) + ' รายการรอตัดสิน') : 'ไม่มีรายการค้าง';
+    host.innerHTML = (d.items || []).map(it =>
+      '<div class="revitem" data-url="' + esc(it.url) + '">'
+      + '<div class="rt">' + esc(it.text || '') + '</div>'
+      + '<div class="rm"><span>' + esc(PLAT[it.platform] || it.platform || '') + '</span>'
+      + '<span>@' + esc(it.author || '') + '</span>'
+      + '<span>' + esc((it.noise_why || it.noise_state || '').slice(0, 40)) + '</span>'
+      + '<span class="acts">'
+      + '<button type="button" class="mini ok" data-decide="confirmed">เก็บไว้</button>'
+      + '<button type="button" class="mini no" data-decide="rejected">ตัดออก</button>'
+      + '</span></div></div>').join('')
+      || '<div class="empty">ไม่มีรายการรอทบทวน</div>';
   }
 
   /* ── comment summary (LLM, cached server-side) ───────────── */
@@ -930,6 +1035,8 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     const st = await fetch('/api/stats?' + (S.run ? 'run=' + encodeURIComponent(S.run) + '&' : '')
       + (S.noiseOn ? 'include_noise=1' : '')).then(r => r.json());
     S.hiddenNoise = st.hidden_noise || 0;
+    const rb = $('#revBadge');
+    if (rb && st.revision) rb.textContent = 'ข้อมูลรุ่น ' + st.revision;
     const nb = $('#noiseCount'); if (nb) nb.textContent = num(S.hiddenNoise);
     const nt = $('#noiseToggle'); if (nt) nt.setAttribute('aria-pressed', String(S.noiseOn));
     const done = (st.translated || 0) + (st.native_th || 0);
@@ -1289,7 +1396,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
   async function refresh(){
     try {
       await Promise.all([loadStats(), loadTrend(), loadIssues(), loadPosts(), loadHealth(), loadRuns(), loadDims(),
-      loadSummary(), loadRankings()]);
+      loadSummary(), loadRankings(), loadCoverage(), loadReview()]);
       renderChips();
       $('#banner').classList.remove('on');
     } catch (e) {
@@ -1454,10 +1561,25 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       loadRankings().catch(() => {});
       return;
     }
+    if (e.target.closest('#reviewToggle')) {
+      const card = $('#review-card');
+      card.hidden = !card.hidden;
+      if (!card.hidden) loadReview().catch(() => {});
+      return;
+    }
+    const decide = e.target.closest('[data-decide]');
+    if (decide) {
+      const box = decide.closest('.revitem');
+      const url = box.dataset.url, state = decide.dataset.decide;
+      fetch('/api/review?url=' + encodeURIComponent(url) + '&state=' + state, {method: 'POST'})
+        .then(() => Promise.all([loadReview(), loadPosts(), loadStats(), loadCoverage()]))
+        .catch(() => {});
+      return;
+    }
     if (e.target.closest('#noiseToggle')) {
       S.noiseOn = !S.noiseOn;
       Promise.all([loadPosts(), loadStats(), loadTrend(), loadIssues(), loadDims(),
-                   loadSummary(), loadRankings()]).catch(() => {});
+                   loadSummary(), loadRankings(), loadCoverage(), loadReview()]).catch(() => {});
     }
   });
 

@@ -24,16 +24,7 @@ app = FastAPI(title='Harken Dashboard API', version='1.0.0')
 
 
 def _fingerprint():
-    parts = []
-    for f in sorted(glob.glob(os.path.join(PROJECT, '*.jsonl'))):
-        if f.endswith('-cand.jsonl'):
-            continue
-        try:
-            st = os.stat(f)
-        except OSError:
-            continue
-        parts.append('%s:%s:%s' % (os.path.basename(f), st.st_size, int(st.st_mtime)))
-    return hashlib.sha256('|'.join(parts).encode()).hexdigest()[:16]
+    return ingest_mod.fingerprint()
 
 
 async def _watch_feeds():
@@ -66,7 +57,10 @@ async def _watch_feeds():
 async def _startup():
     db.init()
     await asyncio.to_thread(ingest_mod.ingest)
-    asyncio.create_task(_watch_feeds())
+    if os.environ.get('HARKEN_EMBED_WORKER', '1') != '0':
+        asyncio.create_task(_watch_feeds())
+    else:
+        print('[watch] embedded worker disabled — expects api.worker', flush=True)
 
 
 @app.get('/api/health')
@@ -102,6 +96,60 @@ async def do_translate():
 @app.post('/api/sentiment')
 async def do_sentiment():
     return await asyncio.to_thread(sentiment_mod.run)
+
+
+def _revision():
+    """Cheap snapshot id so the UI can tell two cards apart when polls differ."""
+    with db.db() as conn:
+        row = conn.execute('SELECT COUNT(*) n FROM posts').fetchone()
+        cr = conn.execute('SELECT COUNT(*) n FROM post_comments').fetchone()
+        ing = conn.execute('SELECT COALESCE(MAX(id),0) i FROM ingest_log').fetchone()
+    return 'r%s.p%s.c%s' % (ing['i'], row['n'], cr['n'])
+
+
+@app.get('/api/review')
+def review_list(state: str = 'pending', limit: int = Query(50, ge=1, le=200), run: str = ''):
+    """Posts the model was unsure about (or that a human flagged) — decide by eye."""
+    rw, rp = [], []
+    _run_clause(rw, rp, run)
+    where = ['COALESCE(review_state,\'auto\') = ?'] + rw
+    params = [state] + rp
+    if state == 'pending':
+        where = ["COALESCE(review_state,'auto') = 'auto'",
+                 "(COALESCE(noise_state,'') = 'uncertain' OR COALESCE(noise_checked,0) = 0)"] + rw
+        params = rp
+    with db.db() as conn:
+        rows = [dict(r) for r in conn.execute(
+            'SELECT url, platform, author, text_th, text_raw, posted_iso, likes, run,'
+            ' noise, noise_state, noise_why, review_state, review_note FROM posts WHERE '
+            + ' AND '.join(where) + ' ORDER BY posted_iso DESC LIMIT ?', params + [limit])]
+        pending = conn.execute(
+            "SELECT COUNT(*) c FROM posts WHERE COALESCE(review_state,'auto') = 'auto' AND "
+            "(COALESCE(noise_state,'') = 'uncertain' OR COALESCE(noise_checked,0) = 0)").fetchone()['c']
+    for r in rows:
+        r['text'] = (r.get('text_th') or r.get('text_raw') or '')[:220]
+    return {'items': rows, 'pending': pending, 'state': state}
+
+
+@app.post('/api/review')
+def review_set(url: str = '', state: str = 'confirmed', note: str = ''):
+    """Human decision wins: 'confirmed' keeps the post, 'rejected' hides it, 'auto' re-opens."""
+    if state not in ('confirmed', 'rejected', 'auto'):
+        raise HTTPException(status_code=400, detail='state must be confirmed|rejected|auto')
+    with db.db() as conn:
+        cur = conn.execute(
+            'UPDATE posts SET review_state = ?, review_note = ?, reviewed_iso = ?,'
+            ' noise = CASE WHEN ? = \'rejected\' THEN 1 WHEN ? = \'confirmed\' THEN 0 ELSE noise END'
+            ' WHERE url = ?',
+            (state, note, _now(), state, state, url))
+        if not cur.rowcount:
+            raise HTTPException(status_code=404, detail='post not found')
+    return {'ok': True, 'url': url, 'state': state}
+
+
+@app.get('/api/revision')
+def revision():
+    return {'revision': _revision(), 'server_time': _now()}
 
 
 @app.get('/api/stats')
@@ -148,7 +196,8 @@ def stats(run: str = '', include_noise: int = 0):
             + (' AND ' + ' AND '.join(noise_scope) if noise_scope else ''),
             noise_params).fetchone()['c']
 
-    return {'total': total, 'translated': translated, 'native_th': native_th,
+    return {'revision': _revision(), 'total': total, 'translated': translated,
+            'native_th': native_th,
             'hidden_noise': hidden_noise, 'comments': comments,
             'comment_sentiment': comment_sentiment, 'posts_with_comments': posts_with_comments,
             'by_platform': by_platform, 'by_day': by_day, 'by_sentiment': by_sentiment,
@@ -260,6 +309,11 @@ def export_csv(q: str = '', platform: str = '', date_from: str = '', date_to: st
     body = '\ufeff' + buf.getvalue()
     return Response(content=body, media_type='text/csv; charset=utf-8',
                     headers={'Content-Disposition': 'attachment; filename="harken-posts.csv"'})
+
+
+def _now():
+    import datetime as dt
+    return dt.datetime.now(dt.timezone(dt.timedelta(hours=7))).strftime('%Y-%m-%dT%H:%M+07:00')
 
 
 def _iso(s):
@@ -394,7 +448,9 @@ def issues(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20)
     if not cur:
         return {'issues': [], 'window_days': days}
 
-    cand = top_terms([body(r) for r in cur], limit=40)
+    LEGAL = {'บริษัท', 'จำกัด', 'มหาชน', 'จำกัดมหาชน', 'บจก', 'บมจ', 'ออลล์', 'company', 'co'}
+    cand = [t for t in top_terms([body(r) for r in cur], limit=40)
+            if t['term'] not in LEGAL and len(t['term']) >= 3]
     docs = {}
     for t in cand:
         term = t['term']
@@ -605,11 +661,22 @@ def runs():
         if r['last_iso'] and (not cur['last_iso'] or r['last_iso'] > cur['last_iso']):
             cur['last_iso'] = r['last_iso']
 
+    with db.db() as conn:
+        status_rows = {r['run']: dict(r) for r in conn.execute('SELECT * FROM run_status')}
+
     out = []
     for key, cur in merged.items():
         label, queries = label_for(key)
         exists = os.path.exists(os.path.join(PROJECT, (key or '') + '.jsonl'))
-        out.append(dict(cur, label=label, queries=queries[:6], file_exists=exists))
+        st = status_rows.pop(key, {})
+        stored = st.get('comments_stored') or 0
+        reported = st.get('comments_reported') or 0
+        out.append(dict(cur, label=label, queries=queries[:6], file_exists=exists,
+                        status=st.get('status') or ('missing' if not exists else 'unknown'),
+                        note=st.get('note') or '',
+                        comments_stored=stored, comments_reported=reported,
+                        comments_coverage=(round(stored / reported * 100) if reported and stored <= reported else None),
+                        ready_iso=st.get('ready_iso') or ''))
     out.sort(key=lambda x: (x['last_iso'] or '', x['label']), reverse=True)
     return {'runs': out, 'count': len(out), 'total_posts': sum(r['posts'] for r in out)}
 

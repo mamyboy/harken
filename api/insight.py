@@ -9,7 +9,7 @@ import time
 
 from . import db, llm
 
-NOISE_LABELS = ('noise', 'ok')
+NOISE_LABELS = ('noise', 'ok', 'uncertain')
 MAX_SUMMARY_COMMENTS = 100      # analysis cap the user asked for
 AD_RE = re.compile(
     r'(โปรโมชั่น|สั่งซื้อ|สนใจ|ทักแชท|โทร|ราคา|ผ่อน|ส่งฟรี|ขายส่ง|รับสมัคร|'
@@ -33,10 +33,12 @@ def heuristic_noise(text, keyword=''):
 
 
 def pending_relevance(limit=200):
+    """Only untouched posts — a human decision is never re-classified."""
     with db.db() as conn:
         return [dict(r) for r in conn.execute(
             "SELECT url, run, text_th, text_raw FROM posts "
-            "WHERE COALESCE(noise_checked,0) = 0 LIMIT ?", (limit,))]
+            "WHERE COALESCE(noise_checked,0) = 0 AND COALESCE(review_state,'auto') = 'auto' "
+            "LIMIT ?", (limit,))]
 
 
 def _ask(session, rows):
@@ -44,8 +46,9 @@ def _ask(session, rows):
                for i, r in enumerate(rows)]
     prompt = (
         'คุณเป็นผู้คัดกรองข้อมูล social listening ให้ตอบว่าโพสต์ต่อไปนี้ "เกี่ยวกับหัวข้อที่ค้นหา" หรือไม่\n'
-        '- ok   = เนื้อหาเกี่ยวข้องกับหัวข้อ/แบรนด์/เหตุการณ์ที่ค้น (kw)\n'
-        '- noise= โฆษณา ขายของ โปรโมชั่น เรื่องอื่นโดยบังเอิญมีคำค้น หรือข้อความไร้สาระ\n'
+        '- ok       = เนื้อหาเกี่ยวข้องกับหัวข้อ/แบรนด์/เหตุการณ์ที่ค้น (kw)\n'
+        '- noise    = โฆษณา ขายของ โปรโมชั่น เรื่องอื่นโดยบังเอิญมีคำค้น หรือข้อความไร้สาระ\n'
+        '- uncertain= ไม่แน่ใจ/ข้อมูลไม่พอตัดสิน — ใช้เมื่อลังเล ห้ามเดาเป็น noise\n'
         'ตอบเป็น JSON array เท่านั้น: [{"i":0,"s":"ok","why":"สั้นๆ"}] ห้ามมีข้อความอื่น\n\n'
         + llm.json.dumps(payload, ensure_ascii=False)
     )
@@ -66,8 +69,8 @@ def run_relevance(chunks=8):
 
     with db.db() as conn:
         for r, why in quick:
-            conn.execute('UPDATE posts SET noise = 1, noise_why = ?, noise_checked = 1 WHERE url = ?',
-                         (why, r['url']))
+            conn.execute("UPDATE posts SET noise = 1, noise_why = ?, noise_checked = 1,"
+                         " noise_state = 'noise' WHERE url = ?", (why, r['url']))
         checked += len(quick)
         noise += len(quick)
 
@@ -95,8 +98,9 @@ def run_relevance(chunks=8):
                     if i >= len(batch):
                         continue
                     conn.execute(
-                        'UPDATE posts SET noise = ?, noise_why = ?, noise_checked = 1 WHERE url = ?',
-                        (1 if s == 'noise' else 0, why, batch[i]['url']))
+                        "UPDATE posts SET noise = ?, noise_why = ?, noise_checked = 1,"
+                        " noise_state = ? WHERE url = ?",
+                        (1 if s == 'noise' else 0, why, s, batch[i]['url']))
             checked += len(got)
             noise += sum(1 for s, _ in got.values() if s == 'noise')
         except Exception:

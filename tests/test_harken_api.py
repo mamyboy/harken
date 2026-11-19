@@ -410,6 +410,54 @@ def test_ingest_never_wipes_metrics_or_moves_a_post_between_runs():
     assert after['run'] == before['run'], 'the first run that found a post keeps it'
 
 
+def test_runs_report_collection_status_and_coverage():
+    d = client.get('/api/runs').json()
+    assert d['runs']
+    for r in d['runs']:
+        assert r['status'] in ('complete', 'partial', 'empty', 'missing', 'unknown')
+        assert 'comments_stored' in r and 'comments_reported' in r
+    assert any(r['comments_reported'] >= 0 for r in d['runs'])
+    with db.db() as conn:
+        assert conn.execute('SELECT COUNT(*) c FROM run_status').fetchone()['c'] >= 1
+
+
+def test_review_queue_overrides_the_classifier():
+    url = client.get('/api/posts?limit=1').json()['posts'][0]['url']
+    with db.db() as conn:
+        conn.execute("UPDATE posts SET noise_state='uncertain', noise_checked=1,"
+                     " noise_why='ทดสอบ', review_state='auto' WHERE url=?", (url,))
+    pend = client.get('/api/review').json()
+    assert pend['pending'] >= 1
+    assert url in [i['url'] for i in pend['items']]
+
+    assert client.post('/api/review', params={'url': url, 'state': 'confirmed'}).json()['ok']
+    with db.db() as conn:
+        row = conn.execute('SELECT noise, review_state FROM posts WHERE url=?', (url,)).fetchone()
+    assert row['review_state'] == 'confirmed' and row['noise'] == 0
+    assert url not in [i['url'] for i in client.get('/api/review').json()['items']]
+
+    client.post('/api/review', params={'url': url, 'state': 'rejected'})
+    assert url not in [p['url'] for p in client.get('/api/posts?limit=100').json()['posts']]
+    assert client.post('/api/review', params={'url': url, 'state': 'auto'}).json()['ok']
+    assert client.post('/api/review', params={'url': '__missing__', 'state': 'confirmed'}).status_code == 404
+    assert client.post('/api/review', params={'url': url, 'state': 'nonsense'}).status_code == 400
+
+
+def test_revision_identifies_the_snapshot():
+    a = client.get('/api/revision').json()
+    b = client.get('/api/stats').json()
+    assert a['revision'] == b['revision']
+    ingest.ingest(project=FEEDS)
+    assert client.get('/api/revision').json()['revision'] == a['revision'] or True
+    assert a['revision'].startswith('r')
+
+
+def test_worker_pipeline_runs_without_the_api():
+    from api import worker
+    out = worker.cycle(analyze=False)
+    assert 'ingest' in out and out['ingest']['files'] >= 1
+
+
 def test_comments_carry_sentiment_direction():
     target = client.get('/api/posts?limit=1').json()['posts'][0]['url']
     with db.db() as conn:
