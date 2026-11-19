@@ -18,8 +18,11 @@ def pending_comments(limit=400):
     """Comment rows still missing a sentiment label."""
     with db.db() as conn:
         return [dict(r) for r in conn.execute(
-            "SELECT id, text_th, text_raw FROM post_comments "
-            "WHERE COALESCE(sentiment,'') = '' AND COALESCE(kind,'social') = 'social' AND COALESCE(text_raw,'') <> '' LIMIT ?", (limit,))]
+            "SELECT c.id, c.text_th, c.text_raw FROM post_comments c "
+            "LEFT JOIN posts p ON p.url = c.url "
+            "WHERE COALESCE(c.sentiment,'') = '' "
+            "AND COALESCE(p.kind,'social') = 'social' "
+            "AND COALESCE(c.text_raw,'') <> '' LIMIT ?", (limit,))]
 
 
 def _classify(session_id, items, key='url'):
