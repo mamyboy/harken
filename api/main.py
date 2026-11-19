@@ -403,7 +403,7 @@ def _iso(s):
 
 
 
-def _fit_days(stamps, end, wanted, min_rows=5, caps=(7, 30, 90, 365, 3650)):
+def _fit_days(stamps, end, wanted, min_rows=5, caps=(7, 30, 90, 365)):
     """Widen the window until it holds enough posts.
 
     A dashboard that says 'no data' because the last 7 days are quiet is lying about the
@@ -437,7 +437,8 @@ def trend(gran: str = 'day', days: int = Query(7, ge=1, le=30), run: str = '',
 
     stamps = [t for t in (_iso(s) for s in rows) if t]
     newest = max(stamps)
-    days = _fit_days(stamps, newest, days)
+    if not run:                     # an explicit run pick keeps the window the user asked for
+        days = _fit_days(stamps, newest, days)
 
     def count(lo, hi):
         c = {}
@@ -535,7 +536,8 @@ def issues(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20)
 
     stamps = [t for t in (_iso(r['posted_iso']) for r in rows) if t]
     end = max(stamps)
-    days = _fit_days(stamps, end, days)
+    if not run:
+        days = _fit_days(stamps, end, days)
     cur_lo = end - dt.timedelta(days=days)
     prev_lo = cur_lo - dt.timedelta(days=days)
     cur = [r for r, t in zip(rows, stamps) if t >= cur_lo]
