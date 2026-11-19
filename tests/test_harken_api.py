@@ -347,6 +347,17 @@ def test_profile_cards_are_not_stored_as_comments():
                             "WHERE text_raw LIKE '% followers%'").fetchone()['c'] == 0
 
 
+def test_comment_language_guard_keeps_thai_drops_strays():
+    """Reel comment panels surface unrelated recommended threads."""
+    from api.ingest import _comment_belongs
+    post = 'ซีพี ออลล์ แจ้งความเอาผิด เกรียนโซเชียล ถ่ายคลิปไลฟ์ในร้าน 7-11'
+    assert _comment_belongs('เอาให้หนักเลยครับ อย่ายอมความ', post) is True
+    assert _comment_belongs('Share video cho vui vậy thôi chứ 90% dùng AI vibecode', post) is False
+    assert _comment_belongs('Good illustration. But it will break secure connections', post) is False
+    assert _comment_belongs('7-11 hiring now', post) is False, 'short tokens are not evidence'
+    assert _comment_belongs('7-Eleven สาขานี้ปิดกี่โมง', post) is True
+
+
 def test_comments_carry_sentiment_direction():
     target = client.get('/api/posts?limit=1').json()['posts'][0]['url']
     with db.db() as conn:

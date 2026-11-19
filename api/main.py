@@ -152,6 +152,7 @@ the and for with that this from have has are was were you your our their his her
 ได้ ที่ จะ และ ของ ใน การ ให้ ไม่ มี เป็น ว่า ก็ แต่ จาก ไป มา นี้ นั้น เรา เขา คุณ ผม ฉัน
 หรือ ถึง ยัง อยู่ แล้ว คือ ต้อง อาจ มาก น้อย คน วัน เรื่อง อย่าง ระหว่าง หลัง ก่อน
 ทั้งหมด ทุกคน รวม อื่น เป็นต้น เช่น นี่ และก็ ส่วน ทาง ด้าน ซึ่ง ผู้ คนนั้น ด้วย ถ้า เพราะ
+ดูเพิ่มเติม See more สมัครเป็นสมาชิก video connections Policy followers Follow
 """.split())
 
 
@@ -811,9 +812,12 @@ def comments_insights(days: int = Query(30, ge=1, le=180), run: str = ''):
     end = max((t for _, t in stamped), default=None)
     end_d = end.date() if end else None
     start = (end_d - dt.timedelta(days=days - 1)) if end_d else None
-    win = [(r, t) for r, t in stamped if not start or start <= t.date() <= end_d]
-    if not win:
-        win = stamped
+    dated = [r for r, _ in stamped]
+    undated = [r for r in rows if not _iso(r['posted_iso'])]
+    # comments without a parseable timestamp still count — never silently drop rows
+    win = [(r, _iso(r['posted_iso'])) for r in rows
+           if not _iso(r['posted_iso'])
+           or not start or start <= _iso(r['posted_iso']).date() <= end_d]
 
     mix = {'pos': 0, 'neu': 0, 'neg': 0, 'none': 0}
     plat, talkers, posts_map = {}, {}, {}

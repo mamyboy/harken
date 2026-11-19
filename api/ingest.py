@@ -50,7 +50,10 @@ def _platform(name, url=''):
         return 'other'
 
 
-CHROME_RE = __import__('re').compile(
+_RE = __import__('re')
+UI_TAIL = _RE.compile(r'\s*(?:ดูเพิ่มเติม|See more|see more)\s*$')
+
+CHROME_RE = _RE.compile(
     r'(?is)\b\d+\s*followers?\b.*\bfollow\b|\bquotes?\s+\d+\b.*\bmessage\b')
 
 
@@ -65,6 +68,29 @@ def _looks_like_profile_card(text):
         return False
     lines = [ln.strip() for ln in t.splitlines() if ln.strip()]
     return bool(len(lines) >= 4 and any('follower' in ln.lower() for ln in lines))
+
+
+THAI_RE = _RE.compile(r'[\u0E00-\u0E7F]')
+
+
+def _thai_ratio(text):
+    letters = [ch for ch in (text or '') if ch.isalpha()]
+    if not letters:
+        return 0.0
+    return sum(1 for ch in letters if THAI_RE.match(ch)) / len(letters)
+
+
+def _comment_belongs(ctext, post_text):
+    """A Thai news post attracts Thai replies; the reel comment panel also shows
+    unrelated recommended threads (Vietnamese/English), so drop those."""
+    r = _thai_ratio(ctext)
+    if r >= 0.2:
+        return True
+    if not post_text:
+        return True
+    # non-Thai comment is kept only when it shares a real word with the post
+    words = {w.lower() for w in _RE.findall(r'[A-Za-z]{4,}|[\u0E00-\u0E7F]{3,}', post_text)}
+    return any(w in ctext.lower() for w in words)
 
 
 def _metrics(p):
@@ -178,8 +204,13 @@ def ingest(project=PROJECT, verbose=False):
 
                 for i, c in enumerate(p.get('comments') or []):
                     curl = c.get('url') or f'{url}#c{i}'
-                    ctext = (c.get('text') or '').strip()
+                    ctext = UI_TAIL.sub('', (c.get('text') or '').strip())
                     if _looks_like_profile_card(ctext):
+                        continue
+                    # every real reply carries a time; feed-side "recommended" blocks do not
+                    if not (c.get('posted_iso') or '').strip():
+                        continue
+                    if not _comment_belongs(ctext, p.get('text') or ''):
                         continue
                     cth = (trans.get(_text_key(ctext)) or {}).get('th') or ctext
                     conn.execute(
