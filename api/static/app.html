@@ -146,6 +146,7 @@ a:hover{text-decoration:underline}
 .radar .poly-prev{fill:rgba(0,184,230,.10); stroke:var(--cyan); stroke-width:1.6; stroke-dasharray:4 3; stroke-linejoin:round}
 .radar .dot{fill:#fff; stroke:var(--brand); stroke-width:1.6}
 .legend{display:flex; flex-direction:column; gap:9px}
+[hidden]{display:none !important}
 .legend .item[hidden]{display:none}
 .legend .item{display:flex; align-items:center; gap:8px; font-size:12.5px; color:#4A566E}
 .legend .sw{width:10px; height:10px; border-radius:3px; flex:none}
@@ -720,7 +721,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     </div>
 
     <section class="card" id="terms" aria-label="คำที่ถูกพูดถึง">
-      <div class="card-head"><h2>คำที่ถูกพูดถึงบ่อย</h2><span class="hint">คลิกเพื่อเพิ่มเป็นตัวกรอง</span></div>
+      <div class="card-head"><h2>คำที่ถูกพูดถึงบ่อย</h2><span class="hint" id="termsHint" hidden>คลิกเพื่อเพิ่มเป็นตัวกรอง</span></div>
       <div class="card-body"><div class="chips" id="termlist"></div></div>
     </section>
 
@@ -1196,6 +1197,7 @@ async function loadNews(append){
     $('#heroEng').textContent = num(eng.likes);
     const hc = $('#heroComments'); if (hc) hc.textContent = num(st.comments || 0);
     const ha = $('#heroAuthors'); if (ha) ha.textContent = num((st.top_authors || []).length);
+    const cnb = $('#clearNews'); if (cnb) cnb.disabled = !(st.news_total > 0);
 
     $('#heroRole').textContent = (st.by_platform || []).map(p => (PLAT[p.platform] || p.platform) + ' ' + num(p.n)).join(' · ') || 'ยังไม่มีข้อมูล';
 
@@ -1268,6 +1270,7 @@ async function loadNews(append){
       host.innerHTML = '<div class="empty"><b>ยังไม่มีประเด็นให้เทียบ</b>ต้องมีโพสต์อย่างน้อย 1 เรื่องใน 7 วันล่าสุด</div>';
       return;
     }
+    const th = $('#termsHint'); if (th) th.hidden = !items.length;
     const max = Math.max(1, ...items.map(i => Math.max(i.n_posts || 0, i.prev_posts || 0)));
     const hasPrev = items.some(i => i.prev_posts > 0);
     host.innerHTML = '<div class="barwrap">' + items.map(it => {
