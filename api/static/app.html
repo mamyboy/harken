@@ -408,7 +408,19 @@ tbody tr:last-child td{border-bottom:0}
 .rel{margin-top:8px; font-size:11.5px; color:var(--muted); display:flex; gap:6px; flex-wrap:wrap;
   align-items:center}
 .rel a{font-size:11.5px}
-.snip{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+
+/* ── message cell ─────────────────────────────────────────── */
+.msg{display:flex; align-items:flex-start; gap:7px; min-width:0}
+.msg .msgtopic{flex:0 0 auto; font-size:14px; line-height:1.45; filter:saturate(.9)}
+.msg .msgtext{min-width:0; display:block; line-height:1.62}
+.msg .lead{font-weight:650; color:var(--ink); letter-spacing:.002em}
+.msg .rest{color:#4A566E; font-weight:400}
+.msg .hchips{display:inline-flex; flex-wrap:wrap; gap:4px; margin-left:6px; align-self:center}
+.msg .hchip{font-size:10.5px; line-height:1.6; background:#EDF1FE; color:#3730A3;
+  border-radius:999px; padding:0 7px; white-space:nowrap}
+.msg .hchip.more{background:#F1F3F8; color:#5A6782}
+.snip .msgtext{font-size:13px}
+.snip{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
   font-size:13.5px; line-height:1.6; color:var(--ink-2); max-width:620px}
 .full{white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.65; max-width:760px}
 mark{background:#FFEFB0; color:var(--ink); padding:0 2px; border-radius:3px}
@@ -883,6 +895,85 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     if (!words.length) return safe;
     return words.reduce((acc, w) =>
       acc.replace(new RegExp(escRx(esc(w)), 'gi'), m => '<mark>' + m + '</mark>'), safe);
+  }
+
+
+  /* ── message cell: make the text readable without rewriting it ──────────
+     Only presentation changes: platform crumbs removed, hashtags moved into chips,
+     first clause emphasised, topic emoji as a glance cue. Wording is never edited. */
+  const TOPIC_EMOJI = [
+    [/(น้ำท่วม|น้ำป่า|น้ำหลาก|อุทกภัย|น้ำล้น|น้ำท่วมขัง)/, '🌊', 'น้ำท่วม'],
+    [/(ฝนตก|ฝนฟ้าคะนอง|มรสุม|ฝนหนัก)/, '🌧️', 'ฝน'],
+    [/(ราคาทอง|ทองคำ|ทองแท่ง|ทองรูปพรรณ)/, '💰', 'ราคาทอง'],
+    [/(สารหนู|โลหะหนัก|ปนเปื้อน|สารพิษ)/, '☣️', 'ปนเปื้อน'],
+    [/(หมอพร้อม|สาธารณสุข|โรงพยาบาล|วัคซีน|ผู้ป่วย|สิทธิรักษา)/, '🏥', 'สุขภาพ'],
+    [/(เตือน|ประกาศ|ภัยพิบัติ|อพยพ|ฉุกเฉิน)/, '⚠️', 'เตือนภัย'],
+  ];
+
+  const KEY_TERMS = ['น้ำท่วม', 'น้ำป่าไหลหลาก', 'ฝนตกหนัก', 'สตูล', 'ราคาทอง', 'สารหนู',
+                     'หมอพร้อม', 'อพยพ', 'เตือนภัย'];
+  function markKeys(html, budget){
+    let n = 0;
+    for (const w of KEY_TERMS){
+      if (n >= budget) break;
+      const re = new RegExp('(?<!<mark>)' + escRx(esc(w)), 'i');
+      if (re.test(html)){ html = html.replace(re, m => '<mark>' + m + '</mark>'); n++; }
+    }
+    return html;
+  }
+
+  function msgClean(t){
+    return String(t || '')
+      .replace(/[\u200b\u200c\u200d\ufeff]/g, '')
+      .replace(/https?:\/\/\S+/g, ' ')
+      .replace(/\s*·\s*(·\s*)+/g, ' · ')
+      .replace(/[\s·]+$/, '')
+      .replace(/\b(Translate|See more|See translation|ดูเพิ่มเติม|อ่านต่อ|แสดงเพิ่มเติม)\b/gi, ' ')
+      .replace(/\s*\n+\s*/g, ' · ')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s*·\s*·\s*/g, ' · ')
+      .trim();
+  }
+
+  function msgTags(t){
+    const tags = (t.match(/#[^\s#]{2,24}/g) || []).slice(0, 8);
+    const body = tags.length
+      ? t.replace(/#[^\s#]{2,24}/g, ' ').replace(/\s{2,}/g, ' ').trim()
+      : t;
+    return {tags: Array.from(new Set(tags)), body};
+  }
+
+  function prettyMsg(raw, opts){
+    opts = opts || {};
+    let t = msgClean(raw);
+    const {tags, body: b0} = msgTags(t);
+    const hit = TOPIC_EMOJI.find(x => x[0].test(b0));
+    let body = b0, clipped = '';
+    const limit = opts.limit || 0;
+    if (limit && body.length > limit){
+      const cut = body.slice(0, limit);
+      const at = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf('|'), cut.lastIndexOf('·'));
+      body = body.slice(0, at > limit * 0.55 ? at : limit).trim();
+      clipped = '…';
+    }
+    // emphasise the opening clause, mute the rest — the reading order stays the same
+    let lead = body, rest = '';
+    const sep = body.search(/[|]| — | – |: /);
+    if (sep > 24){
+      lead = body.slice(0, sep);
+      rest = body.slice(sep);
+    } else if (body.length > 120){
+      const i = body.lastIndexOf(' ', 120);
+      if (i > 60){ lead = body.slice(0, i); rest = body.slice(i); }
+    }
+    const chips = tags.length
+      ? '<span class="hchips">' + tags.slice(0, 3).map(x => '<span class="hchip">' + esc(x) + '</span>').join('') +
+        (tags.length > 3 ? '<span class="hchip more">+' + (tags.length - 3) + '</span>' : '') + '</span>'
+      : '';
+    return '<div class="msg">' +
+      (hit ? '<span class="msgtopic" title="' + esc(hit[2]) + '">' + hit[1] + '</span>' : '') +
+      '<span class="msgtext"><b class="lead">' + markKeys(highlight(lead), 2) + '</b>' +
+      '<span class="rest">' + markKeys(highlight(rest), 1) + clipped + '</span></span>' + chips + '</div>';
   }
 
   /* ── search runs (one collection per feed file) ─────────── */
@@ -1488,12 +1579,12 @@ async function loadNews(append){
           (sent ? '<span class="tag ' + sent.c + '">' + sent.e + ' ' + esc(sent.n) + '</span>' : '') +
         '</div></td>' +
         '<td data-l="ข้อความ">' + (open
-          ? '<div class="full">' + highlight(th) + '</div>' + thread + related +
+          ? '<div class="full">' + prettyMsg(th) + '</div>' + thread + related +
             ((p.text_th && p.text_th !== p.text_raw)
               ? '<div class="expand"><button class="btn" type="button" data-raw="' + esc(p.url) + '" aria-expanded="false">แสดงข้อความต้นฉบับ</button></div>' +
                 '<div class="raw" hidden>' + esc(p.text_raw) + '</div>'
               : '')
-          : '<div class="snip">' + highlight(th) + '</div>' +
+          : '<div class="snip">' + prettyMsg(th, {limit: 230}) + '</div>' +
             (ccount ? '<div class="chint">' + dir.e + ' ' + num(ccount) + ' คอมเมนต์ · ทิศทาง' + esc(dir.n) + '</div>' : '')) + '</td>' +
         '<td data-l="ตัวชี้วัด"><div class="metrics">' +
           '<span>❤ <b>' + num(p.likes) + '</b></span>' +
