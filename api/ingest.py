@@ -36,6 +36,9 @@ def _translations():
 
 def _platform(name, url=''):
     """Platform id from the shared registry (skill scripts), so every scraper counts."""
+    base_name = os.path.basename(name).lower()
+    if base_name.startswith('news_'):      # web news search feed, not social
+        return 'news'
     try:
         if SKILL_SCRIPTS not in sys.path:
             sys.path.insert(0, SKILL_SCRIPTS)
@@ -43,7 +46,7 @@ def _platform(name, url=''):
         pid = platforms.id_of(name, url)
         return 'facebook' if pid == 'fbfeed' else pid
     except Exception:
-        base = os.path.basename(name).lower()
+        base = base_name
         for p in ('threads', 'facebook', 'fbfeed', 'tiktok'):
             if base.startswith(p):
                 return 'facebook' if p == 'fbfeed' else p
@@ -51,6 +54,15 @@ def _platform(name, url=''):
 
 
 _RE = __import__('re')
+
+
+def _news_key(text):
+    """Same story, different tracking URL — dedupe on the headline itself.
+
+    Never split on '.': Thai abbreviations (รฟท., ซี.พี., บมจ.) would cut the
+    headline to nothing and let every re-fetch through as a new row.
+    """
+    return _RE.sub(r'[^0-9a-z\u0e00-\u0e7f]+', '', (text or '').lower())[:50]
 UI_TAIL = _RE.compile(r'\s*(?:ดูเพิ่มเติม|See more|see more)\s*$')
 
 MAX_COMMENTS_PER_POST = 100   # analysis cap: beyond this the signal stops improving
@@ -204,8 +216,9 @@ def ingest(project=PROJECT, verbose=False):
                 text = (p.get('text') or '').strip()
                 th = (trans.get(_text_key(text)) or {}).get('th') or text
                 likes, replies, reposts, shares = _metrics(p)
+                plat = _platform(path, url)
                 row = (
-                    _platform(path, url),
+                    plat,
                     _author(p),
                     text,
                     th,
@@ -225,14 +238,23 @@ def ingest(project=PROJECT, verbose=False):
                     now,   # observed_at
                     now,   # first_seen
                     url,
+                    'news' if plat == 'news' else 'social',
+                    _news_key(text) if plat == 'news' else '',
+                    (p.get('summary') or '')[:400] if plat == 'news' else '',
                 )
                 cur = conn.execute('SELECT 1 FROM posts WHERE url = ?', (url,)).fetchone()
+                if plat == 'news' and not cur:
+                    dk = _news_key(text)
+                    if dk and conn.execute(
+                            "SELECT 1 FROM posts WHERE kind='news' AND dedupe_key = ? LIMIT 1",
+                            (dk,)).fetchone():
+                        continue
                 conn.execute(
                     """INSERT INTO posts
                        (platform, author, text_raw, text_th, posted_at, posted_iso, likes, replies,
                         reposts, shares, is_reply, query, relevance, sentiment, run, fetched_at, updated_at,
-                        observed_at, first_seen, url)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        observed_at, first_seen, url, kind, dedupe_key, summary)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                        ON CONFLICT(url) DO UPDATE SET
                          platform=excluded.platform, author=excluded.author, text_raw=excluded.text_raw,
                          text_th=CASE WHEN excluded.text_th <> '' AND excluded.text_th <> excluded.text_raw
@@ -249,7 +271,11 @@ def ingest(project=PROJECT, verbose=False):
                          run=CASE WHEN COALESCE(posts.run,'') = '' THEN excluded.run ELSE posts.run END,
                          updated_at=excluded.updated_at,
                          observed_at=excluded.observed_at,
-                         first_seen=COALESCE(posts.first_seen, excluded.first_seen)""",
+                         first_seen=COALESCE(posts.first_seen, excluded.first_seen),
+                         kind=excluded.kind,
+                         dedupe_key=excluded.dedupe_key,
+                         summary=CASE WHEN excluded.kind = 'news' THEN excluded.summary
+                                      ELSE COALESCE(NULLIF(excluded.summary,''), posts.summary) END""",
                     row,
                 )
                 if cur:

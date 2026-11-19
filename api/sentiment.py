@@ -11,7 +11,7 @@ def pending(limit=400):
     with db.db() as conn:
         return [dict(r) for r in conn.execute(
             "SELECT url, text_th, text_raw FROM posts "
-            "WHERE COALESCE(sentiment,'') = '' AND COALESCE(text_raw,'') <> '' LIMIT ?", (limit,))]
+            "WHERE COALESCE(sentiment,'') = '' AND COALESCE(kind,'social') = 'social' AND COALESCE(text_raw,'') <> '' LIMIT ?", (limit,))]
 
 
 def pending_comments(limit=400):
@@ -19,7 +19,7 @@ def pending_comments(limit=400):
     with db.db() as conn:
         return [dict(r) for r in conn.execute(
             "SELECT id, text_th, text_raw FROM post_comments "
-            "WHERE COALESCE(sentiment,'') = '' AND COALESCE(text_raw,'') <> '' LIMIT ?", (limit,))]
+            "WHERE COALESCE(sentiment,'') = '' AND COALESCE(kind,'social') = 'social' AND COALESCE(text_raw,'') <> '' LIMIT ?", (limit,))]
 
 
 def _classify(session_id, items, key='url'):

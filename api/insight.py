@@ -37,7 +37,8 @@ def pending_relevance(limit=200):
     with db.db() as conn:
         return [dict(r) for r in conn.execute(
             "SELECT url, run, text_th, text_raw FROM posts "
-            "WHERE COALESCE(noise_checked,0) = 0 AND COALESCE(review_state,'auto') = 'auto' "
+            "WHERE COALESCE(kind,'social') = 'social' AND COALESCE(noise_checked,0) = 0 "
+            "AND COALESCE(review_state,'auto') = 'auto' "
             "LIMIT ?", (limit,))]
 
 

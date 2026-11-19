@@ -107,15 +107,62 @@ def _revision():
     return 'r%s.p%s.c%s' % (ing['i'], row['n'], cr['n'])
 
 
+def _split_headline(body):
+    """'รฟท. เตรียม...' must not become the headline 'รฟท'."""
+    idx = body.find('. ')
+    while idx != -1 and idx < 25:
+        idx = body.find('. ', idx + 1)
+    if idx == -1:
+        return body.strip(), ''
+    return body[:idx].strip(), body[idx + 2:].strip()
+
+
+@app.get('/api/news')
+def news(q: str = '', source: str = '', days: int = Query(30, ge=1, le=365),
+         limit: int = Query(50, ge=1, le=300), offset: int = Query(0, ge=0),
+         sort: str = 'newest'):
+    """Web news-search results — a separate dataset from the social listener."""
+    import datetime as dt
+    where, params = ["COALESCE(kind,'social') = 'news'"], []
+    if q:
+        where.append('(text_raw LIKE ? OR COALESCE(text_th,\'\') LIKE ? OR author LIKE ?)')
+        params += ['%' + q + '%'] * 3
+    if source:
+        where.append('author = ?')
+        params.append(source)
+    with db.db() as conn:
+        rows = [dict(r) for r in conn.execute(
+            'SELECT url, author AS source, text_raw AS headline, summary, posted_iso, fetched_at, run '
+            'FROM posts WHERE ' + ' AND '.join(where), params)]
+        sources = [dict(r) for r in conn.execute(
+            "SELECT author AS source, COUNT(*) n FROM posts WHERE COALESCE(kind,'social')='news' "
+            "AND COALESCE(author,'') <> '' GROUP BY author ORDER BY n DESC")]
+
+    stamped = [(r, _iso(r['posted_iso'])) for r in rows]
+    dated = [(r, t) for r, t in stamped if t]
+    if dated and days:
+        end = max(t for _, t in dated).date()
+        start = end - dt.timedelta(days=days - 1)
+        rows = [r for r, t in dated if start <= t.date() <= end]
+    rows.sort(key=lambda r: (r['posted_iso'] or ''), reverse=(sort != 'oldest'))
+    total = len(rows)
+    page = rows[offset:offset + limit]
+    for r in page:
+        r['headline'] = (r.get('headline') or '')[:200]
+        r['summary'] = (r.get('summary') or '')[:200]
+    return {'news': page, 'total': total, 'sources': sources,
+            'days': days, 'offset': offset, 'limit': limit}
+
+
 @app.get('/api/review')
 def review_list(state: str = 'pending', limit: int = Query(50, ge=1, le=200), run: str = ''):
     """Posts the model was unsure about (or that a human flagged) — decide by eye."""
     rw, rp = [], []
     _run_clause(rw, rp, run)
-    where = ['COALESCE(review_state,\'auto\') = ?'] + rw
+    where = ['COALESCE(review_state,\'auto\') = ?', "COALESCE(kind,'social') = 'social'"] + rw
     params = [state] + rp
     if state == 'pending':
-        where = ["COALESCE(review_state,'auto') = 'auto'",
+        where = ["COALESCE(review_state,'auto') = 'auto'", "COALESCE(kind,'social') = 'social'",
                  "(COALESCE(noise_state,'') = 'uncertain' OR COALESCE(noise_checked,0) = 0)"] + rw
         params = rp
     with db.db() as conn:
@@ -124,7 +171,8 @@ def review_list(state: str = 'pending', limit: int = Query(50, ge=1, le=200), ru
             ' noise, noise_state, noise_why, review_state, review_note FROM posts WHERE '
             + ' AND '.join(where) + ' ORDER BY posted_iso DESC LIMIT ?', params + [limit])]
         pending = conn.execute(
-            "SELECT COUNT(*) c FROM posts WHERE COALESCE(review_state,'auto') = 'auto' AND "
+            "SELECT COUNT(*) c FROM posts WHERE COALESCE(review_state,'auto') = 'auto' "
+            "AND COALESCE(kind,'social') = 'social' AND "
             "(COALESCE(noise_state,'') = 'uncertain' OR COALESCE(noise_checked,0) = 0)").fetchone()['c']
     for r in rows:
         r['text'] = (r.get('text_th') or r.get('text_raw') or '')[:220]
@@ -139,7 +187,8 @@ def review_set(url: str = '', state: str = 'confirmed', note: str = ''):
     with db.db() as conn:
         cur = conn.execute(
             'UPDATE posts SET review_state = ?, review_note = ?, reviewed_iso = ?,'
-            ' noise = CASE WHEN ? = \'rejected\' THEN 1 WHEN ? = \'confirmed\' THEN 0 ELSE noise END'
+            ' noise = CASE WHEN ? = \'rejected\' THEN 1 WHEN ? = \'confirmed\' THEN 0'
+            '              WHEN COALESCE(noise_state,\'\') = \'noise\' THEN 1 ELSE 0 END'
             ' WHERE url = ?',
             (state, note, _now(), state, state, url))
         if not cur.rowcount:
@@ -157,6 +206,7 @@ def stats(run: str = '', include_noise: int = 0):
     rw, rp = [], []
     _run_clause(rw, rp, run)
     noise_scope, noise_params = list(rw), list(rp)
+    _kind_clause(rw)
     _noise_clause(rw, include_noise)
     W = ('WHERE ' + ' AND '.join(rw)) if rw else ''
     with db.db() as conn:
@@ -256,6 +306,12 @@ def _noise_clause(where, include_noise=0):
     """Hide posts the relevance pass flagged as ads / off-topic (default on)."""
     if not include_noise:
         where.append('COALESCE(noise,0) = 0')
+
+
+def _kind_clause(where, kind='social'):
+    """Social rows and news-search rows are separate datasets — never mixed."""
+    where.append("COALESCE(kind,'social') = ?") if False else where.append(
+        "COALESCE(kind,'social') = '%s'" % ('news' if kind == 'news' else 'social'))
 
 
 def _add_filters(where, params, q='', platform='', relevance='', date_from='', date_to='',
@@ -426,6 +482,7 @@ def issues(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20)
     import datetime as dt
     where, params = [], []
     _add_filters(where, params, q, platform, '', '', '', sentiment, '', run)
+    _kind_clause(where)
     _noise_clause(where, include_noise)
     sql_where = ('WHERE ' + ' AND '.join(where)) if where else ''
     with db.db() as conn:
@@ -581,9 +638,12 @@ def posts(
     offset: int = Query(0, ge=0),
     comments: int = Query(1, ge=0, le=1),
     include_noise: int = 0,
+    include_news: int = 0,
 ):
     where, params = [], []
     _add_filters(where, params, q, platform, relevance, date_from, date_to, sentiment, terms, run)
+    if not include_news:
+        _kind_clause(where)
     _noise_clause(where, include_noise)
     sql_where = ('WHERE ' + ' AND '.join(where)) if where else ''
     order = {'oldest': 'posted_iso ASC',
@@ -671,7 +731,8 @@ def runs():
         st = status_rows.pop(key, {})
         stored = st.get('comments_stored') or 0
         reported = st.get('comments_reported') or 0
-        out.append(dict(cur, label=label, queries=queries[:6], file_exists=exists,
+        kind = 'news' if str(key).startswith('news_') else 'social'
+        out.append(dict(cur, kind=kind, label=label, queries=queries[:6], file_exists=exists,
                         status=st.get('status') or ('missing' if not exists else 'unknown'),
                         note=st.get('note') or '',
                         comments_stored=stored, comments_reported=reported,
@@ -750,6 +811,7 @@ def dims(days: int = Query(7, ge=1, le=60), run: str = '', include_noise: int = 
 
     rw, rp = [], []
     _run_clause(rw, rp, run)
+    _kind_clause(rw)
     _noise_clause(rw, include_noise)
     with db.db() as conn:
         rows = [dict(r) for r in conn.execute(
@@ -883,6 +945,7 @@ def rankings(days: int = Query(7, ge=1, le=180), limit: int = Query(6, ge=1, le=
     import datetime as dt
     rw, rp = [], []
     _run_clause(rw, rp, run)
+    _kind_clause(rw)
     _noise_clause(rw, include_noise)
     where = ['1=1'] + rw
     with db.db() as conn:
@@ -919,7 +982,7 @@ def comments_summary(days: int = Query(30, ge=1, le=180), run: str = '',
     """อ่านคอมเมนต์แล้วสรุปเป็นสาระ (LLM, cached) — capped at 100 comments."""
     rw, rp = [], []
     _run_clause(rw, rp, run, prefix='p.')
-    where = ['1=1'] + rw
+    where = ['1=1'] + rw + ["COALESCE(p.kind,'social') = 'social'"]
     if not include_noise:
         where.append('COALESCE(p.noise,0) = 0')
     with db.db() as conn:

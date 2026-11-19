@@ -28,7 +28,8 @@ def pending(limit=400):
     with db.db() as conn:
         rows = [dict(r) for r in conn.execute(
             "SELECT url, text_raw, text_th FROM posts "
-            "WHERE COALESCE(text_raw,'') <> '' AND (text_th IS NULL OR text_th = '' OR text_th = text_raw)")]
+            "WHERE COALESCE(kind,'social') = 'social' AND COALESCE(text_raw,'') <> '' "
+            "AND (text_th IS NULL OR text_th = '' OR text_th = text_raw)")]
     out = []
     for r in rows:
         if _ratio(r['text_raw']) >= 0.3:

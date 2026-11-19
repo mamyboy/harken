@@ -114,9 +114,14 @@ def init():
         for col, ddl in (('observed_at', 'TEXT'), ('first_seen', 'TEXT'),
                          ('review_state', "TEXT DEFAULT 'auto'"), ('review_note', 'TEXT'),
                          ('reviewed_iso', 'TEXT'),
-                         ('noise_state', "TEXT DEFAULT 'pending'")):
+                         ('noise_state', "TEXT DEFAULT 'pending'"),
+                         ('kind', "TEXT DEFAULT 'social'"),
+                         ('dedupe_key', "TEXT DEFAULT ''"),
+                         ('summary', "TEXT DEFAULT ''")):
             if col not in cols:
                 conn.execute('ALTER TABLE posts ADD COLUMN %s %s' % (col, ddl))
         conn.execute('CREATE INDEX IF NOT EXISTS idx_posts_review ON posts(review_state)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_posts_kind ON posts(kind)')
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_posts_dedupe ON posts(kind, dedupe_key)")
         conn.execute('CREATE INDEX IF NOT EXISTS idx_comments_url_sent ON post_comments(url, sentiment)')
     return DB_PATH

@@ -279,6 +279,28 @@ tbody tr:last-child td{border-bottom:0}
 .thread .cm b{color:var(--ink); font-size:12px}
 .thread .cl{font-variant-numeric:tabular-nums}
 .thread .ct{font-size:13px; color:var(--ink-2); line-height:1.55}
+/* ── second dataset: news search, kept visually apart ──────── */
+.dsplit{display:flex; align-items:center; gap:14px; margin:34px 0 12px; padding:0 2px}
+.dsplit .dslabel{font-size:12.5px; font-weight:600; letter-spacing:0;
+  color:var(--ink); white-space:nowrap; display:inline-flex; align-items:center; gap:8px}
+.dsplit .dslabel b{font-weight:500; font-size:11px; color:var(--muted-2)}
+.dsplit .dsline{flex:1; height:1px; background:linear-gradient(90deg, var(--line), transparent)}
+#news-card .newsbar{display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  padding:10px 16px; border-bottom:1px solid var(--line)}
+#news-card .newsbar .chips{flex:1; margin:0}
+.newsq{display:flex; align-items:center; flex:1 1 220px; min-width:0}
+.newsq input{font:inherit; font-size:12px; padding:6px 10px; border-radius:8px;
+  border:1px solid var(--line); background:#fff; color:var(--ink); width:100%; min-width:0}
+.newsq input:focus{outline:2px solid var(--accent); outline-offset:1px}
+#news-card td.src{white-space:nowrap; color:var(--ink-2); font-size:11.5px}
+#news-card td.hl{line-height:1.55}
+#news-card td.hl b{font-weight:600; color:var(--ink)}
+#news-card td.hl small{display:block; color:var(--muted-2); font-size:11px; margin-top:2px}
+#news-card tr.newsrow:hover{background:#FAFBFE; cursor:pointer}
+.nchip{font:inherit; font-size:11px; padding:3px 9px; border-radius:999px; cursor:pointer;
+  border:1px solid var(--line); background:#fff; color:var(--ink-2); white-space:nowrap}
+.nchip[aria-pressed="true"]{background:var(--accent-soft, #EEF2FF); border-color:var(--accent); color:var(--accent-ink, #3730A3)}
+
 /* ── collection status + review queue ─────────────────────── */
 .covrow{display:grid; grid-template-columns:minmax(0,1fr) 92px 54px minmax(0,1.25fr);
   gap:10px; align-items:center; font-size:12px; padding:8px 2px; border-top:1px solid var(--line)}
@@ -733,6 +755,45 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       </div>
     </section>
 
+    <div class="dsplit" role="separator">
+      <span class="dslabel">ชุดข้อมูลที่ 2 · ข่าวจากเว็บ <b id="dsCount">–</b></span>
+      <span class="dsline"></span>
+    </div>
+
+    <section class="card" id="news-card" aria-label="ข่าวจากเว็บ">
+      <div class="card-head">
+        <h2>ข่าวจาก Search Engine</h2>
+        <span class="hint" id="news-hint">–</span>
+      </div>
+      <div class="newsbar">
+        <div class="chips" id="newsSources" role="group" aria-label="กรองตามแหล่งข่าว"></div>
+        <label class="newsq">
+          <span class="sr">ค้นในหัวข่าว</span>
+          <input type="search" id="newsQ" placeholder="ค้นในหัวข่าว / สรุป" autocomplete="off">
+        </label>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <caption class="sr">ข่าวจากเครื่องมือค้นหา แยกจากข้อมูลโซเชียล</caption>
+          <thead>
+            <tr>
+              <th scope="col">เวลา</th>
+              <th scope="col">แหล่งข่าว</th>
+              <th scope="col">หัวข่าว / สรุป</th>
+              <th scope="col"><span class="sr">ลิงก์</span></th>
+            </tr>
+          </thead>
+          <tbody id="newsrows">
+            <tr><td colspan="4" style="padding:16px"><div class="skel" style="width:62%;margin-bottom:9px"></div><div class="skel" style="width:88%"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <span class="info" id="news-info">–</span>
+        <button class="btn" id="newsMore" type="button">โหลดเพิ่ม</button>
+      </div>
+    </section>
+
   </div>
 </div>
 
@@ -810,7 +871,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     try { d = await fetch('/api/runs').then(r => r.json()); } catch (e) { return; }
     const bar = $('#runbar');
     if (!bar) return;
-    S.runs = d.runs || [];
+    S.runs = (d.runs || []).filter(r => (r.kind || 'social') === 'social');
     const all = $('#runAll');
     if (all) all.textContent = num(d.total_posts || 0);
     const chip = r => {
@@ -833,7 +894,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       const cr = $('#clearRun');
       if (cr) cr.disabled = !S.run;
       loadRuns(); loadPosts(); loadStats(); loadTrend(); loadIssues(); loadDims();
-      loadSummary(); loadRankings(); loadCoverage(); loadReview();
+      loadSummary(); loadRankings(); loadCoverage(); loadReview(); loadNews();
     }));
     const cr = $('#clearRun');
     if (cr) {
@@ -877,6 +938,52 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       if (cr) cr.disabled = !S.run;
       const ca = $('#clearAll');
       if (ca) ca.disabled = false;
+    }
+  }
+
+  /* ── news search: its own dataset, own filters, own paging ─ */
+  const NEWS = {q: '', source: '', offset: 0, limit: 20, total: 0};
+  function newsRow(n){
+    const t = (n.posted_iso || '').replace('T', ' ').slice(5, 16);
+    return '<tr class="newsrow" data-url="' + esc(n.url) + '">'
+      + '<td class="num" style="color:var(--muted-2);white-space:nowrap">' + esc(t || '—') + '</td>'
+      + '<td class="src">' + esc(n.source || '—') + '</td>'
+      + '<td class="hl"><b>' + esc((n.headline || '').slice(0, 130)) + '</b>'
+      + (n.summary ? '<small>' + esc(n.summary.slice(0, 160)) + '</small>' : '') + '</td>'
+      + '<td><a class="btn ghost" href="' + esc(n.url) + '" target="_blank" rel="noopener" '
+      + 'onclick="event.stopPropagation()">เปิด</a></td></tr>';
+  }
+  async function loadNews(append){
+    const host = $('#newsrows'), info = $('#news-info'), hint = $('#news-hint');
+    if (!host) return;
+    if (!append) { NEWS.offset = 0; }
+    const qs = new URLSearchParams({limit: NEWS.limit, offset: NEWS.offset, days: 365});
+    if (NEWS.q) qs.set('q', NEWS.q);
+    if (NEWS.source) qs.set('source', NEWS.source);
+    let d;
+    try { d = await fetch('/api/news?' + qs).then(r => r.json()); } catch (e) { return; }
+    const rows = d.news || [];
+    if (!append) host.innerHTML = '';
+    if (!rows.length && !append) {
+      host.innerHTML = '<tr><td colspan="4"><div class="empty">ยังไม่มีข่าว — รัน '
+        + '<code>scripts/news_collect.py "คำค้น"</code> แล้วรอ 5 วินาที</div></td></tr>';
+    } else {
+      host.insertAdjacentHTML('beforeend', rows.map(newsRow).join(''));
+    }
+    NEWS.total = d.total || 0;
+    NEWS.offset += rows.length;
+    if (info) info.textContent = 'แสดง ' + num(NEWS.offset) + ' จาก ' + num(NEWS.total) + ' ข่าว';
+    if (hint) hint.textContent = (d.sources || []).length + ' แหล่งข่าว · แยกจากโซเชียล';
+    const dsc = $('#dsCount'); if (dsc) dsc.textContent = num(d.total || 0) + ' ข่าว';
+    const more = $('#newsMore');
+    if (more) more.hidden = NEWS.offset >= NEWS.total;
+    const chipHost = $('#newsSources');
+    if (chipHost && !append && (d.sources || []).length) {
+      const all = '<button type="button" class="nchip" data-nsrc="" aria-pressed="'
+        + (NEWS.source ? 'false' : 'true') + '">ทุกแหล่ง <b>' + num(d.sources.reduce((a, x) => a + x.n, 0)) + '</b></button>';
+      chipHost.innerHTML = all + d.sources.slice(0, 8).map(x =>
+        '<button type="button" class="nchip" data-nsrc="' + esc(x.source) + '" aria-pressed="'
+        + (NEWS.source === x.source ? 'true' : 'false') + '">' + esc(x.source) + ' <b>' + num(x.n) + '</b></button>').join('');
     }
   }
 
@@ -1396,7 +1503,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
   async function refresh(){
     try {
       await Promise.all([loadStats(), loadTrend(), loadIssues(), loadPosts(), loadHealth(), loadRuns(), loadDims(),
-      loadSummary(), loadRankings(), loadCoverage(), loadReview()]);
+      loadSummary(), loadRankings(), loadCoverage(), loadReview(), loadNews()]);
       renderChips();
       $('#banner').classList.remove('on');
     } catch (e) {
@@ -1458,6 +1565,17 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     typing = setTimeout(() => { S.q = e.target.value.trim(); reset(); }, 260);
   });
   $('#platSel').addEventListener('change', e => { S.platform = e.target.value; reset(); });
+
+  let newsTimer;
+  const newsQ = $('#newsQ');
+  if (newsQ) {
+    newsQ.addEventListener('input', e => {
+      clearTimeout(newsTimer);
+      const v = e.target.value.trim();
+      newsTimer = setTimeout(() => { NEWS.q = v; loadNews(); }, 300);
+    });
+  }
+  $('#newsMore') && $('#newsMore').addEventListener('click', () => loadNews(true));
   $('#export').addEventListener('click', () => { window.location = '/api/export.csv?' + qs(); });
   $('#clearRun').addEventListener('click', () => clearData(false));
   $('#clearAll').addEventListener('click', () => clearData(true));
@@ -1561,6 +1679,18 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       loadRankings().catch(() => {});
       return;
     }
+    const nsrc = e.target.closest('[data-nsrc]');
+    if (nsrc) {
+      NEWS.source = nsrc.dataset.nsrc || '';
+      loadNews().catch(() => {});
+      return;
+    }
+    const nrow = e.target.closest('tr.newsrow');
+    if (nrow && !e.target.closest('a')) {
+      window.open(nrow.dataset.url, '_blank', 'noopener');
+      return;
+    }
+    if (e.target.closest('#newsMore')) { loadNews(true).catch(() => {}); return; }
     if (e.target.closest('#reviewToggle')) {
       const card = $('#review-card');
       card.hidden = !card.hidden;

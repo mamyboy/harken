@@ -43,6 +43,17 @@ _feed('facebook_run-b.jsonl', [
 ])
 
 
+# a news-search feed lives beside the social ones but is a different dataset
+_feed('news_ซีพี.jsonl', [
+    {'url': 'https://news.example.com/a1', 'platform': 'news', 'title': 'ซีพี ออลล์ ประกาศฟ้องแก๊งปากแซ่บ',
+     'text': 'ซีพี ออลล์ ประกาศฟ้องแก๊งปากแซ่บ', 'summary': 'บริษัทเดินหน้าแจ้งความหลังคลิปด่าพนักงานเซเว่น',
+     'source': 'สยามนิวส์', 'author': 'สยามนิวส์', 'posted_iso': '2026-11-19T09:12+07:00'},
+    {'url': 'https://news.example.com/a2', 'platform': 'news', 'title': 'ซีพี แอ็กซ์ตร้า ขยายสาขา',
+     'text': 'ซีพี แอ็กซ์ตร้า ขยายสาขา', 'summary': 'เปิดสาขาใหม่ในภาคใต้',
+     'source': 'Brand Buffet', 'author': 'Brand Buffet', 'posted_iso': '2026-11-18T14:00+07:00'},
+])
+
+
 @pytest.fixture(scope='session', autouse=True)
 def _db():
     db.init()
@@ -178,13 +189,19 @@ def test_posts_terms_are_anded():
 
 
 def test_runs_keep_collections_separate():
+    # news is its own run, and it is tagged so the social UI never lists it
+    runs = client.get('/api/runs').json()['runs']
+    news = [r for r in runs if r['kind'] == 'news']
+    assert len(news) == 1 and news[0]['posts'] == 2 and news[0]['comments_stored'] == 0
     d = client.get('/api/runs').json()
-    assert d['count'] == 2, d
-    by_run = {r['run']: r for r in d['runs']}
+    assert d['count'] == 3, d          # 2 social + 1 news
+    assert sum(1 for r in d['runs'] if r['kind'] == 'social') == 2
+    by_run = {r['run']: r for r in d['runs'] if r['kind'] == 'social'}
     assert set(by_run) == {'threads_run-a', 'facebook_run-b'}
     assert by_run['threads_run-a']['posts'] == 3
     assert by_run['facebook_run-b']['posts'] == 2
-    assert d['total_posts'] == 5
+    assert d['total_posts'] == 7          # 5 social + 2 news, all collections
+    assert sum(r['posts'] for r in d['runs'] if r['kind'] == 'social') == 5
     assert by_run['threads_run-a']['platforms'] == ['threads']
     assert by_run['threads_run-a']['label'], 'a run must always carry a readable label'
 
@@ -456,6 +473,62 @@ def test_worker_pipeline_runs_without_the_api():
     from api import worker
     out = worker.cycle(analyze=False)
     assert 'ingest' in out and out['ingest']['files'] >= 1
+
+
+def test_news_is_a_separate_dataset():
+    d = client.get('/api/news').json()
+    assert d['total'] == 2
+    assert {n['source'] for n in d['news']} == {'สยามนิวส์', 'Brand Buffet'}
+    n = d['news'][0]
+    assert n['headline'].startswith('ซีพี') and n['summary']
+    assert all('news.example.com' not in p['url']
+               for p in client.get('/api/posts?limit=100').json()['posts'])
+    with db.db() as conn:
+        kinds = dict(conn.execute('SELECT kind, COUNT(*) FROM posts GROUP BY kind').fetchall())
+    assert kinds.get('news') == 2 and kinds.get('social') == 5
+
+
+def test_news_filters_and_never_enters_social_analytics():
+    assert client.get('/api/news', params={'q': 'ฟ้อง'}).json()['total'] == 1
+    assert client.get('/api/news', params={'source': 'Brand Buffet'}).json()['total'] == 1
+    assert client.get('/api/news', params={'q': 'ไม่มีคำนี้'}).json()['total'] == 0
+    assert client.get('/api/news', params={'days': 1}).json()['total'] <= 2
+
+    stats = client.get('/api/stats').json()
+    assert stats['total'] == 5                      # social only, news excluded
+    assert all(p['platform'] != 'news' for p in client.get('/api/posts?limit=100').json()['posts'])
+    assert all(i['platform'] != 'news' for i in client.get('/api/review').json()['items'])
+
+    from api import sentiment, translate
+    assert all('news.example.com' not in (r.get('url') or '')
+               for r in translate.pending(limit=200))
+    assert all('news.example.com' not in (r.get('url') or '')
+               for r in sentiment.pending(limit=200))
+
+
+def test_news_dedupes_the_same_story_across_tracking_urls():
+    # Google News hands out a fresh tracking URL for the same article
+    _feed('news_dup.jsonl', [
+        {'url': 'https://news.example.com/a1?oc=99', 'platform': 'news',
+         'text': 'ซีพี ออลล์ ประกาศฟ้องแก๊งปากแซ่บ', 'summary': 'บริษัทเดินหน้าแจ้งความ',
+         'author': 'สยามนิวส์', 'posted_iso': '2026-11-19T09:12+07:00'},
+        {'url': 'https://news.example.com/brand-new', 'platform': 'news',
+         'text': 'ข่าวใหม่จริง ๆ ที่ยังไม่เคยเก็บ', 'summary': 'เนื้อหาย่อ',
+         'author': 'ไทยรัฐ', 'posted_iso': '2026-11-19T10:00+07:00'},
+    ])
+    before = client.get('/api/news').json()['total']
+    ingest.ingest(project=FEEDS)
+    after = client.get('/api/news').json()['total']
+    assert after == before + 1          # the twin headline is skipped, the new story is added
+    titles = [n['headline'] for n in client.get('/api/news?limit=50').json()['news']]
+    assert len(titles) == len(set(titles))
+    os.remove(os.path.join(FEEDS, 'news_dup.jsonl'))
+
+
+def test_news_feeds_survive_a_reingest():
+    a = client.get('/api/news').json()['total']
+    ingest.ingest(project=FEEDS)
+    assert client.get('/api/news').json()['total'] == a
 
 
 def test_comments_carry_sentiment_direction():

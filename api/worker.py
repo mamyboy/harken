@@ -12,6 +12,7 @@ import time
 
 from . import db, ingest as ingest_mod, insight, sentiment as sentiment_mod, translate as translate_mod
 
+PROJECT = os.path.expanduser('~/Projects/harken')
 TICK = float(os.environ.get('HARKEN_INGEST_SECONDS', '3'))
 LOCK = os.path.expanduser('~/Projects/harken/.worker.lock')
 
@@ -32,7 +33,7 @@ def cycle(analyze=True):
     """One ingest→analyse pass. Returns a dict for logging/assertions."""
     out = {}
     try:
-        out['ingest'] = ingest_mod.ingest()
+        out['ingest'] = ingest_mod.ingest(project=os.environ.get('HARKEN_FEEDS', PROJECT))
     except Exception as e:
         out['ingest_error'] = '%s: %s' % (type(e).__name__, e)
     if not analyze:

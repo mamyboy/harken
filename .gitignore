@@ -40,3 +40,8 @@ launch/
 uv.lock
 .coverage
 .claude/
+.worker.lock
+.impeccable/
+plans/
+prototypes/
+site/
