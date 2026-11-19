@@ -391,6 +391,25 @@ def test_comment_summary_is_capped_at_100():
     assert d['source'] in ('llm', 'heuristic', 'empty')
 
 
+def test_ingest_never_wipes_metrics_or_moves_a_post_between_runs():
+    """A later run re-reading a post must not zero its metrics or steal its run."""
+    import json as _json, tempfile
+    from api import ingest as ing
+    url = client.get('/api/posts?limit=1').json()['posts'][0]['url']
+    with db.db() as conn:
+        before = dict(conn.execute('SELECT run, likes FROM posts WHERE url = ?', (url,)).fetchone())
+    d = tempfile.mkdtemp()
+    with open(os.path.join(d, 'zzz_other.jsonl'), 'w', encoding='utf-8') as fh:
+        fh.write(_json.dumps({'url': url, 'text': 'ข้อความเดิม', 'platform': 'threads',
+                              'posted_iso': '2026-11-18T10:00:00+07:00', 'metrics': {}},
+                             ensure_ascii=False) + '\n')
+    ing.ingest(project=d)
+    with db.db() as conn:
+        after = dict(conn.execute('SELECT run, likes FROM posts WHERE url = ?', (url,)).fetchone())
+    assert after['likes'] == before['likes'], 'a zero metric must not overwrite a real count'
+    assert after['run'] == before['run'], 'the first run that found a post keeps it'
+
+
 def test_comments_carry_sentiment_direction():
     target = client.get('/api/posts?limit=1').json()['posts'][0]['url']
     with db.db() as conn:

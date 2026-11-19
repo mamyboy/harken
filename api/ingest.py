@@ -190,12 +190,15 @@ def ingest(project=PROJECT, verbose=False):
                          text_th=CASE WHEN excluded.text_th <> '' AND excluded.text_th <> excluded.text_raw
                                       THEN excluded.text_th ELSE posts.text_th END,
                          posted_at=excluded.posted_at, posted_iso=excluded.posted_iso,
-                         likes=excluded.likes, replies=excluded.replies, reposts=excluded.reposts,
-                         shares=excluded.shares, is_reply=excluded.is_reply, query=excluded.query,
+                         likes=CASE WHEN excluded.likes > 0 THEN excluded.likes ELSE posts.likes END,
+                         replies=CASE WHEN excluded.replies > 0 THEN excluded.replies ELSE posts.replies END,
+                         reposts=CASE WHEN excluded.reposts > 0 THEN excluded.reposts ELSE posts.reposts END,
+                         shares=CASE WHEN excluded.shares > 0 THEN excluded.shares ELSE posts.shares END,
+                         is_reply=excluded.is_reply, query=excluded.query,
                          relevance=excluded.relevance,
                          sentiment=CASE WHEN excluded.sentiment <> '' THEN excluded.sentiment
                                         ELSE posts.sentiment END,
-                         run=excluded.run,
+                         run=CASE WHEN COALESCE(posts.run,'') = '' THEN excluded.run ELSE posts.run END,
                          updated_at=excluded.updated_at""",
                     row,
                 )

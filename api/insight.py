@@ -145,8 +145,10 @@ def summarize_comments(rows, run='') -> dict:
     if not rows:
         return {'bullets': [], 'themes': [], 'source': 'empty', 'used': 0}
 
-    key = 'summary:%s:%d:%s' % (run or 'all', len(rows),
-                                (rows[0].get('id') or '')[:12])
+    import hashlib
+    fingerprint = hashlib.sha1(
+        ('|'.join((r.get('id') or '') for r in rows)).encode('utf-8')).hexdigest()[:16]
+    key = 'summary:%s:%d:%s' % (run or 'all', len(rows), fingerprint)
     cached = _cache_get(key)
     if cached:
         try:
