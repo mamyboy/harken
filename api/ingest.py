@@ -56,6 +56,17 @@ def _platform(name, url=''):
 _RE = __import__('re')
 
 
+def _summary(p, plat):
+    """A description that only repeats the outlet is not a summary."""
+    if plat != 'news':
+        return ''
+    sm = (p.get('summary') or '').strip()[:400]
+    src = (p.get('source') or p.get('author') or '').strip()
+    if sm and src and sm.casefold() == src.casefold():
+        return ''
+    return sm
+
+
 def _news_key(text):
     """Same story, different tracking URL — dedupe on the headline itself.
 
@@ -240,7 +251,7 @@ def ingest(project=PROJECT, verbose=False):
                     url,
                     'news' if plat == 'news' else 'social',
                     _news_key(text) if plat == 'news' else '',
-                    (p.get('summary') or '')[:400] if plat == 'news' else '',
+                    _summary(p, plat),
                 )
                 cur = conn.execute('SELECT 1 FROM posts WHERE url = ?', (url,)).fetchone()
                 if plat == 'news' and not cur:
