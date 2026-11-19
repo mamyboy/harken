@@ -94,6 +94,8 @@ def main():
     ap.add_argument('--days', type=int, default=30)
     ap.add_argument('--limit', type=int, default=40)
     ap.add_argument('--no-bing', action='store_true')
+    ap.add_argument('--loose', action='store_true',
+                    help='keep fuzzy matches (default: the keyword must appear verbatim)')
     ap.add_argument('--out', default='')
     a = ap.parse_args()
 
@@ -111,6 +113,20 @@ def main():
                       - dt.timedelta(days=a.days)).isoformat(timespec='minutes')
         except Exception:
             cutoff = None
+
+    # Google/Bing match Thai fuzzily ("ปะหวาจัดให้" -> บางหว้า, บางปะกอก). A news item
+    # is only kept when the phrase itself appears in its title or summary.
+    want = re.sub(r'\s+', '', a.keyword).lower()
+    off_topic = 0
+    if not a.loose:
+        filtered = []
+        for r in rows:
+            hay = re.sub(r'\s+', '', (r['title'] + ' ' + r['summary'])).lower()
+            if want in hay:
+                filtered.append(r)
+            else:
+                off_topic += 1
+        rows = filtered
 
     seen, kept = set(), []
     for r in rows:
@@ -155,8 +171,9 @@ def main():
                 'posted_iso': r['posted_iso'],
                 'collector': r['collector'],
             }, ensure_ascii=False) + '\n')
-    print(json.dumps({'keyword': a.keyword, 'news': len(kept), 'file': out,
-                      'sources': sorted({r['source'] for r in kept})[:8]}, ensure_ascii=False))
+    print(json.dumps({'keyword': a.keyword, 'news': len(kept), 'dropped_offtopic': off_topic,
+                      'file': out, 'sources': sorted({r['source'] for r in kept})[:8]},
+                     ensure_ascii=False))
 
 
 if __name__ == '__main__':
