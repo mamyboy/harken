@@ -294,6 +294,16 @@ tbody tr:last-child td{border-bottom:0}
 .runchip.on b{color:var(--violet-d)}
 .runchip .rmeta{font-size:10.5px; color:var(--muted-2); white-space:nowrap}
 .runchip.on .rmeta{color:var(--violet)}
+/* ── danger actions (clear data) ──────────────────────────── */
+.runactions{display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  padding:0 16px 12px; background:#FAFCFF}
+.btn.danger{border:1px solid #F3C9C9; color:#B42318; background:#FFF6F6;
+  font-size:12px; font-weight:600; border-radius:9px; padding:5px 11px; cursor:pointer;
+  transition:.15s}
+.btn.danger:hover:not(:disabled){background:#FDECEC; border-color:var(--neg); transform:translateY(-1px)}
+.btn.danger:disabled{opacity:.45; cursor:not-allowed}
+.btn.danger.busy{opacity:.6; cursor:progress}
+#clearMsg{font-size:11.5px; color:var(--muted)}
 .rel{margin-top:8px; font-size:11.5px; color:var(--muted); display:flex; gap:6px; flex-wrap:wrap;
   align-items:center}
 .rel a{font-size:11.5px}
@@ -544,6 +554,11 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
         <span class="runlabel">ชุดการค้นหา</span>
         <button type="button" class="runchip" data-run="" aria-pressed="true">ทุกชุด <b id="runAll">–</b></button>
       </div>
+      <div class="runactions">
+        <button type="button" class="btn danger" id="clearRun" disabled>ล้างชุดที่เลือก</button>
+        <button type="button" class="btn danger" id="clearAll">ล้างทั้งหมด</button>
+        <span class="hint" id="clearMsg" role="status" aria-live="polite"></span>
+      </div>
       <div class="tablewrap">
         <table>
           <caption class="sr">รายการโพสต์จากฐานข้อมูลจริง</caption>
@@ -667,8 +682,52 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     bar.querySelectorAll('.runchip').forEach(b => b.addEventListener('click', () => {
       S.run = b.dataset.run || '';
       S.page = 1;
+      const cr = $('#clearRun');
+      if (cr) cr.disabled = !S.run;
       loadRuns(); loadPosts(); loadStats(); loadTrend(); loadIssues();
     }));
+    const cr = $('#clearRun');
+    if (cr) {
+      cr.disabled = !S.run;
+      cr.textContent = S.run ? 'ล้างชุด “' + (S.runs.find(r => r.run === S.run) || {}).label + '”' : 'ล้างชุดที่เลือก';
+    }
+  }
+
+  /* ── clear data (one run or everything) ─────────────────── */
+  async function clearData(all){
+    const label = all ? 'ข้อมูลทั้งหมด' : 'ชุด “' +
+      ((S.runs || []).find(r => r.run === S.run) || {}).label + '”';
+    const msg = $('#clearMsg');
+    if (!window.confirm('ลบ' + label + ' ออกจากแดชบอร์ด?\n\n' +
+        '• แถวในฐานข้อมูลจะถูกลบถาวร\n' +
+        '• ไฟล์ฟีดจะถูกย้ายไป feeds_archive/ (ไม่ถูกลบ)\n' +
+        '• กู้คืนได้จากไฟล์สำรอง')) return;
+    const btns = [$('#clearAll'), $('#clearRun')];
+    btns.forEach(b => { if (b) { b.disabled = true; b.classList.add('busy'); } });
+    if (msg) msg.textContent = 'กำลังล้าง…';
+    try {
+      const p = new URLSearchParams(all ? {all: '1'} : {run: S.run});
+      const d = await fetch('/api/runs/clear?' + p, {method: 'POST'}).then(r => r.json());
+      if (all) S.run = '';
+      await loadRuns();
+      // the cleared run is gone — fall back to "all runs" instead of showing an empty page
+      if (S.run && !(S.runs || []).some(r => r.run === S.run)) {
+        S.run = '';
+        S.page = 1;
+        await loadRuns();
+      }
+      if (msg) msg.textContent = 'ลบแล้ว ' + num(d.posts_deleted) + ' โพสต์ · เก็บไฟล์ ' +
+        (d.archived || []).length + ' ไฟล์';
+      await Promise.all([loadPosts(), loadStats(), loadTrend(), loadIssues()]);
+    } catch (e) {
+      if (msg) msg.textContent = 'ล้างไม่สำเร็จ: ' + e.message;
+    } finally {
+      btns.forEach(b => { if (b) b.classList.remove('busy'); });
+      const cr = $('#clearRun');
+      if (cr) cr.disabled = !S.run;
+      const ca = $('#clearAll');
+      if (ca) ca.disabled = false;
+    }
   }
 
   /* ── stats / hero / sentiment / authors / terms ─────────── */
@@ -1090,6 +1149,8 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
   });
   $('#platSel').addEventListener('change', e => { S.platform = e.target.value; reset(); });
   $('#export').addEventListener('click', () => { window.location = '/api/export.csv?' + qs(); });
+  $('#clearRun').addEventListener('click', () => clearData(false));
+  $('#clearAll').addEventListener('click', () => clearData(true));
   $('#retry').addEventListener('click', refresh);
   $('#per').addEventListener('change', e => { S.per = Number(e.target.value); reset(); });
   $('#prev').addEventListener('click', () => { S.page = Math.max(1, S.page - 1); reset(); });

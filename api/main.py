@@ -10,7 +10,7 @@ import os
 import re
 import time
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 
 from . import db, ingest as ingest_mod, translate as translate_mod, sentiment as sentiment_mod
@@ -585,6 +585,53 @@ def runs():
         out.append(dict(cur, label=label, queries=queries[:6], file_exists=exists))
     out.sort(key=lambda x: (x['last_iso'] or '', x['label']), reverse=True)
     return {'runs': out, 'count': len(out), 'total_posts': sum(r['posts'] for r in out)}
+
+
+@app.post('/api/runs/clear')
+def clear_runs(run: str = '', all: int = 0, keep_files: int = 0):
+    """Delete one search run, or everything — rows now and the feed file so it can't return.
+
+    Feed files are never destroyed: they are moved to feeds_archive/<timestamp>/.
+    """
+    import datetime as dt
+    import glob
+    import os
+    import shutil
+
+    runs = [r.strip() for r in (run or '').split(',') if r.strip()]
+    if not runs and not all:
+        raise HTTPException(status_code=400, detail='ต้องระบุ run หรือ all=1')
+
+    with db.db() as conn:
+        if all:
+            posts = conn.execute('DELETE FROM posts').rowcount
+            comments = conn.execute('DELETE FROM post_comments').rowcount
+        else:
+            marks = ','.join('?' * len(runs))
+            cur = conn.execute('DELETE FROM post_comments WHERE url IN '
+                               '(SELECT url FROM posts WHERE run IN (' + marks + '))', runs)
+            comments = cur.rowcount
+            posts = conn.execute('DELETE FROM posts WHERE run IN (' + marks + ')', runs).rowcount
+
+    archived = []
+    if not keep_files:
+        stamp = dt.datetime.now().strftime('%Y%m%d-%H%M%S')
+        dest = os.path.join(PROJECT, 'feeds_archive', stamp)
+        targets = (glob.glob(os.path.join(PROJECT, '*.jsonl')) if all else
+                   [os.path.join(PROJECT, r + '.jsonl') for r in runs])
+        for path in targets:
+            if not os.path.exists(path) or path.endswith('-cand.jsonl'):
+                continue
+            os.makedirs(dest, exist_ok=True)
+            base = os.path.basename(path)
+            shutil.move(path, os.path.join(dest, base))
+            meta = path + '.meta.json'
+            if os.path.exists(meta):
+                shutil.move(meta, os.path.join(dest, base + '.meta.json'))
+            archived.append(os.path.join(dest, base))
+
+    return {'ok': True, 'runs': runs, 'all': bool(all), 'posts_deleted': posts,
+            'comments_deleted': comments, 'archived': archived}
 
 
 @app.get('/api/posts/{post_id:path}/comments')

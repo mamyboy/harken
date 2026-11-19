@@ -211,6 +211,32 @@ def test_ingest_stamps_run_on_every_row():
     assert all(p.get('run') for p in rows), 'every post must belong to a run'
 
 
+def test_clear_one_run_leaves_the_other_untouched():
+    import glob
+    # a throwaway run so the shared fixture stays usable for other tests
+    _feed('facebook_run-del.jsonl', [
+        {'url': 'https://facebook.com/del/1', 'author': 'เพจที่จะลบ', 'text': 'โพสต์ที่จะถูกลบทั้งชุด',
+         'posted_iso': '2026-11-19T04:00+07:00', 'metrics': {'reactions': 5}},
+    ])
+    ingest.ingest(project=FEEDS)
+    assert client.get('/api/posts?run=facebook_run-del').json()['total'] == 1
+
+    r = client.post('/api/runs/clear?run=facebook_run-del')
+    assert r.status_code == 200
+    body = r.json()
+    assert body['posts_deleted'] == 1
+    assert body['archived'], 'feed file must be archived, never destroyed'
+
+    assert client.get('/api/posts?run=facebook_run-del').json()['total'] == 0
+    assert client.get('/api/posts?run=threads_run-a').json()['total'] == 3, 'other runs stay'
+    assert not glob.glob(os.path.join(FEEDS, 'facebook_run-del.jsonl')), 'file moved out of the feed dir'
+    assert glob.glob(os.path.join(FEEDS, 'feeds_archive', '*', 'facebook_run-del.jsonl'))
+
+
+def test_clear_requires_a_scope():
+    assert client.post('/api/runs/clear').status_code == 400
+
+
 def test_comments_carry_sentiment_direction():
     target = client.get('/api/posts?limit=1').json()['posts'][0]['url']
     with db.db() as conn:
