@@ -358,6 +358,39 @@ def test_comment_language_guard_keeps_thai_drops_strays():
     assert _comment_belongs('7-Eleven สาขานี้ปิดกี่โมง', post) is True
 
 
+def test_noise_posts_are_hidden_unless_requested():
+    url = client.get('/api/posts?limit=1').json()['posts'][0]['url']
+    with db.db() as conn:
+        conn.execute("UPDATE posts SET noise = 1, noise_why = 'ทดสอบ' WHERE url = ?", (url,))
+    plain, wide = client.get('/api/stats').json(), client.get('/api/stats?include_noise=1').json()
+    assert wide['total'] == plain['total'] + 1
+    assert plain['hidden_noise'] >= 1
+    assert url not in [p['url'] for p in client.get('/api/posts?limit=100').json()['posts']]
+    assert url in [p['url'] for p in
+                   client.get('/api/posts?limit=100&include_noise=1').json()['posts']]
+    with db.db() as conn:
+        conn.execute('UPDATE posts SET noise = 0 WHERE url = ?', (url,))
+
+
+def test_rankings_are_sorted_per_metric():
+    d = client.get('/api/rankings?limit=5').json()
+    for k in ('by_comments', 'by_likes', 'by_engagement', 'top_commenters'):
+        assert k in d
+    likes = [x['likes'] for x in d['by_likes']]
+    assert likes == sorted(likes, reverse=True)
+    eng = [x['engagement'] for x in d['by_engagement']]
+    assert eng == sorted(eng, reverse=True)
+    assert all(x['engagement'] == x['likes'] + x['replies'] + x['reposts'] for x in d['by_engagement'])
+
+
+def test_comment_summary_is_capped_at_100():
+    d = client.get('/api/comments/summary').json()
+    assert d['cap'] == 100
+    assert d['used'] <= 100
+    assert isinstance(d['bullets'], list) and isinstance(d['themes'], list)
+    assert d['source'] in ('llm', 'heuristic', 'empty')
+
+
 def test_comments_carry_sentiment_direction():
     target = client.get('/api/posts?limit=1').json()['posts'][0]['url']
     with db.db() as conn:

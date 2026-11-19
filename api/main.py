@@ -13,7 +13,7 @@ import time
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 
-from . import db, ingest as ingest_mod, translate as translate_mod, sentiment as sentiment_mod
+from . import db, ingest as ingest_mod, insight, translate as translate_mod, sentiment as sentiment_mod
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, 'static')
@@ -54,6 +54,9 @@ async def _watch_feeds():
                 sc = await asyncio.to_thread(sentiment_mod.run_comments)
                 if sc.get('pending'):
                     print('[sentiment:comments] %s' % (sc,), flush=True)
+                rl = await asyncio.to_thread(insight.run_relevance)
+                if rl.get('checked'):
+                    print('[relevance] %s' % (rl,), flush=True)
         except Exception as e:
             print('[watch] error %s: %s' % (type(e).__name__, e), flush=True)
         await asyncio.sleep(INGEST_EVERY)
@@ -102,9 +105,11 @@ async def do_sentiment():
 
 
 @app.get('/api/stats')
-def stats(run: str = ''):
+def stats(run: str = '', include_noise: int = 0):
     rw, rp = [], []
     _run_clause(rw, rp, run)
+    noise_scope, noise_params = list(rw), list(rp)
+    _noise_clause(rw, include_noise)
     W = ('WHERE ' + ' AND '.join(rw)) if rw else ''
     with db.db() as conn:
         total = conn.execute('SELECT COUNT(*) c FROM posts ' + W, rp).fetchone()['c']
@@ -138,9 +143,13 @@ def stats(run: str = ''):
             'COALESCE(SUM(reposts),0) rp FROM posts ' + W, rp).fetchone()
         texts = [r['text_th'] or r['text_raw'] or '' for r in conn.execute(
             'SELECT text_th, text_raw FROM posts ' + W + ' LIMIT 800', rp)]
+        hidden_noise = conn.execute(
+            'SELECT COUNT(*) c FROM posts WHERE COALESCE(noise,0) = 1'
+            + (' AND ' + ' AND '.join(noise_scope) if noise_scope else ''),
+            noise_params).fetchone()['c']
 
     return {'total': total, 'translated': translated, 'native_th': native_th,
-            'comments': comments,
+            'hidden_noise': hidden_noise, 'comments': comments,
             'comment_sentiment': comment_sentiment, 'posts_with_comments': posts_with_comments,
             'by_platform': by_platform, 'by_day': by_day, 'by_sentiment': by_sentiment,
             'top_authors': top_authors, 'top_terms': top_terms(texts),
@@ -192,6 +201,12 @@ def _run_clause(where, params, run='', prefix=''):
     if runs:
         where.append(prefix + 'run IN (' + ','.join('?' * len(runs)) + ')')
         params += runs
+
+
+def _noise_clause(where, include_noise=0):
+    """Hide posts the relevance pass flagged as ads / off-topic (default on)."""
+    if not include_noise:
+        where.append('COALESCE(noise,0) = 0')
 
 
 def _add_filters(where, params, q='', platform='', relevance='', date_from='', date_to='',
@@ -261,11 +276,13 @@ def _iso(s):
 
 
 @app.get('/api/trend')
-def trend(gran: str = 'day', days: int = Query(7, ge=1, le=30), run: str = ''):
+def trend(gran: str = 'day', days: int = Query(7, ge=1, le=30), run: str = '',
+          include_noise: int = 0):
     """Two comparison windows of real post counts, anchored to the newest post date."""
     import datetime as dt
     rw, rp = [], []
     _run_clause(rw, rp, run)
+    _noise_clause(rw, include_noise)
     with db.db() as conn:
         rows = [r['posted_iso'] for r in conn.execute(
             "SELECT posted_iso FROM posts WHERE posted_iso <> ''"
@@ -310,11 +327,12 @@ def trend(gran: str = 'day', days: int = Query(7, ge=1, le=30), run: str = ''):
 
 @app.get('/api/terms-changes')
 def terms_changes(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20),
-                  run: str = ''):
+                  run: str = '', include_noise: int = 0):
     """Top terms in the recent window with change vs the previous window (real texts)."""
     import datetime as dt
     rw, rp = [], []
     _run_clause(rw, rp, run)
+    _noise_clause(rw, include_noise)
     with db.db() as conn:
         rows = [dict(r) for r in conn.execute(
             'SELECT text_th, text_raw, posted_iso FROM posts WHERE posted_iso <> \'\''
@@ -344,7 +362,8 @@ def terms_changes(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1,
 
 @app.get('/api/issues')
 def issues(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20),
-           q: str = '', platform: str = '', sentiment: str = '', run: str = ''):
+           q: str = '', platform: str = '', sentiment: str = '', run: str = '',
+           include_noise: int = 0):
     """Group posts into topics (issues) by term co-occurrence, not just top terms.
 
     Terms whose post sets overlap strongly (Jaccard >= 0.5) are treated as one
@@ -353,6 +372,7 @@ def issues(days: int = Query(7, ge=1, le=60), limit: int = Query(8, ge=1, le=20)
     import datetime as dt
     where, params = [], []
     _add_filters(where, params, q, platform, '', '', '', sentiment, '', run)
+    _noise_clause(where, include_noise)
     sql_where = ('WHERE ' + ' AND '.join(where)) if where else ''
     with db.db() as conn:
         rows = [dict(r) for r in conn.execute(
@@ -504,9 +524,11 @@ def posts(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     comments: int = Query(1, ge=0, le=1),
+    include_noise: int = 0,
 ):
     where, params = [], []
     _add_filters(where, params, q, platform, relevance, date_from, date_to, sentiment, terms, run)
+    _noise_clause(where, include_noise)
     sql_where = ('WHERE ' + ' AND '.join(where)) if where else ''
     order = {'oldest': 'posted_iso ASC',
              'likes': 'likes DESC, posted_iso DESC',
@@ -640,7 +662,7 @@ def clear_runs(run: str = '', all: int = 0, keep_files: int = 0):
 
 
 @app.get('/api/dims')
-def dims(days: int = Query(7, ge=1, le=60), run: str = ''):
+def dims(days: int = Query(7, ge=1, le=60), run: str = '', include_noise: int = 0):
     """Every cross-dimension the dashboard can chart, in one request.
 
     heatmap (weekday x hour), per-day per-platform counts, hour profile, author
@@ -661,6 +683,7 @@ def dims(days: int = Query(7, ge=1, le=60), run: str = ''):
 
     rw, rp = [], []
     _run_clause(rw, rp, run)
+    _noise_clause(rw, include_noise)
     with db.db() as conn:
         rows = [dict(r) for r in conn.execute(
             'SELECT platform, author, text_th, text_raw, sentiment, posted_iso, '
@@ -783,6 +806,67 @@ def dims(days: int = Query(7, ge=1, le=60), run: str = ''):
         total += sum(1 for _, t in win if t.date() == d)
         running.append(total)
     out['cumulative'] = {'labels': day_keys, 'values': running}
+    return out
+
+
+@app.get('/api/rankings')
+def rankings(days: int = Query(7, ge=1, le=180), limit: int = Query(6, ge=1, le=20),
+             run: str = '', include_noise: int = 0):
+    """Leaderboards: which posts and which people carry the conversation."""
+    import datetime as dt
+    rw, rp = [], []
+    _run_clause(rw, rp, run)
+    _noise_clause(rw, include_noise)
+    where = ['1=1'] + rw
+    with db.db() as conn:
+        rows = [dict(r) for r in conn.execute(
+            'SELECT p.url, p.platform, p.author, p.text_th, p.text_raw, p.likes, p.replies,'
+            ' p.reposts, p.sentiment, p.posted_iso,'
+            ' (SELECT COUNT(*) FROM post_comments c WHERE c.url = p.url) AS scraped_comments'
+            ' FROM posts p WHERE ' + ' AND '.join(where), rp)]
+        commenters = [dict(r) for r in conn.execute(
+            'SELECT c.author, COUNT(*) n, SUM(c.likes) likes,'
+            " SUM(CASE WHEN c.sentiment = 'pos' THEN 1 ELSE 0 END) pos,"
+            " SUM(CASE WHEN c.sentiment = 'neg' THEN 1 ELSE 0 END) neg"
+            ' FROM post_comments c JOIN posts p ON p.url = c.url'
+            ' WHERE ' + ' AND '.join(where) +
+            " AND COALESCE(c.author,'') <> '' GROUP BY c.author"
+            ' ORDER BY n DESC, likes DESC LIMIT ?', rp + [limit])]
+
+    for r in rows:
+        r['engagement'] = (r.get('likes') or 0) + (r.get('replies') or 0) + (r.get('reposts') or 0)
+        r['text'] = (r.get('text_th') or r.get('text_raw') or '')[:160]
+        r.pop('text_th', None); r.pop('text_raw', None)
+
+    def top(key):
+        return sorted(rows, key=lambda x: (x.get(key) or 0), reverse=True)[:limit]
+
+    return {'by_comments': top('scraped_comments'), 'by_likes': top('likes'),
+            'by_engagement': top('engagement'), 'by_replies': top('replies'),
+            'top_commenters': commenters, 'scanned': len(rows)}
+
+
+@app.get('/api/comments/summary')
+def comments_summary(days: int = Query(30, ge=1, le=180), run: str = '',
+                     include_noise: int = 0, refresh: int = 0):
+    """อ่านคอมเมนต์แล้วสรุปเป็นสาระ (LLM, cached) — capped at 100 comments."""
+    rw, rp = [], []
+    _run_clause(rw, rp, run, prefix='p.')
+    where = ['1=1'] + rw
+    if not include_noise:
+        where.append('COALESCE(p.noise,0) = 0')
+    with db.db() as conn:
+        rows = [dict(r) for r in conn.execute(
+            'SELECT c.id, c.author, c.text_th, c.text_raw, c.likes, c.sentiment, c.posted_iso,'
+            ' p.platform, p.author AS post_author FROM post_comments c'
+            ' JOIN posts p ON p.url = c.url WHERE ' + ' AND '.join(where) +
+            ' ORDER BY c.likes DESC, c.posted_iso DESC', rp)]
+    if refresh:
+        with db.db() as conn:
+            conn.execute("DELETE FROM analysis_cache WHERE key LIKE 'summary:%'")
+    out = insight.summarize_comments(rows, run)
+    out['comments_available'] = len(rows)
+    out['cap'] = insight.MAX_SUMMARY_COMMENTS
     return out
 
 

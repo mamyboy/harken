@@ -279,6 +279,28 @@ tbody tr:last-child td{border-bottom:0}
 .thread .cm b{color:var(--ink); font-size:12px}
 .thread .cl{font-variant-numeric:tabular-nums}
 .thread .ct{font-size:13px; color:var(--ink-2); line-height:1.55}
+/* ── comment summary + rankings ───────────────────────────── */
+.sumlist{display:flex; flex-direction:column; gap:9px}
+.sumlist .sumitem{display:flex; gap:9px; align-items:flex-start; font-size:12.5px;
+  line-height:1.55; color:var(--ink-2)}
+.sumlist .sumitem .dot{flex:0 0 auto; width:6px; height:6px; border-radius:50%;
+  background:var(--violet); margin-top:6px}
+.themebar{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px}
+.themebar .tchip{font-size:11px; padding:3px 9px; border-radius:999px;
+  background:#F1F0FE; color:var(--violet-d); border:1px solid #DED9FB; white-space:nowrap}
+.ranktabs{display:flex; gap:4px; flex-wrap:wrap}
+.rtab{font:inherit; font-size:11px; padding:4px 9px; border-radius:999px; cursor:pointer;
+  border:1px solid var(--line); background:#fff; color:var(--muted)}
+.rtab[aria-pressed="true"]{background:var(--violet); border-color:var(--violet); color:#fff}
+.ranklist{display:flex; flex-direction:column; gap:8px}
+.rankrow{display:grid; grid-template-columns:16px minmax(0,1fr) auto; gap:8px; align-items:center;
+  font-size:12px; color:var(--ink-2)}
+.rankrow .no{font-variant-numeric:tabular-nums; color:var(--muted-2); font-size:11px}
+.rankrow .rt{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.rankrow .rv{font-weight:600; font-variant-numeric:tabular-nums; color:var(--ink)}
+.rankrow .bar{grid-column:2 / -1; height:4px; border-radius:3px; background:var(--line); overflow:hidden}
+.rankrow .bar span{display:block; height:100%; background:var(--violet)}
+
 /* ── multi-dimensional charts ─────────────────────────────── */
 .dimsgrid{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px}
 .dimsgrid .chartcell{border:1px solid var(--line); border-radius:12px; padding:11px 12px 8px;
@@ -566,6 +588,29 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     </section>
 
     <div class="grid-2">
+      <section class="card" id="sum-card" aria-label="สาระจากคอมเมนต์จริง">
+        <div class="card-head"><h2>สาระจากคอมเมนต์จริง</h2>
+          <span class="hint" id="sumMeta">–</span></div>
+        <div class="card-body">
+          <div id="sumList" class="sumlist"><div class="empty">ยังไม่มีคอมเมนต์ให้สรุป</div></div>
+          <div id="sumThemes" class="themebar"></div>
+        </div>
+      </section>
+
+      <section class="card" id="rank-card" aria-label="อันดับ">
+        <div class="card-head"><h2>อันดับ</h2>
+          <div class="ranktabs" role="tablist">
+            <button type="button" class="rtab" data-metric="by_comments" aria-pressed="true">คอมเมนต์</button>
+            <button type="button" class="rtab" data-metric="by_likes" aria-pressed="false">ไลก์</button>
+            <button type="button" class="rtab" data-metric="by_engagement" aria-pressed="false">มีส่วนร่วม</button>
+            <button type="button" class="rtab" data-metric="top_commenters" aria-pressed="false">ผู้คอมเมนต์</button>
+          </div>
+        </div>
+        <div class="card-body"><div id="rankList" class="ranklist"><div class="empty">–</div></div></div>
+      </section>
+    </div>
+
+    <div class="grid-2">
       <section class="card" id="issues-card" aria-label="ประเด็นที่กำลังมาแรง">
         <div class="card-head"><h2>ประเด็นที่กำลังมาแรง</h2>
           <span class="hint">คลิกเพื่อกรองเฉพาะประเด็น</span></div>
@@ -607,6 +652,8 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       <div class="runactions">
         <button type="button" class="btn danger" id="clearRun" disabled>ล้างชุดที่เลือก</button>
         <button type="button" class="btn danger" id="clearAll">ล้างทั้งหมด</button>
+        <button type="button" class="btn ghost" id="noiseToggle" aria-pressed="false"
+                title="โพสต์ที่ระบบวิเคราะห์ว่าโฆษณา/ไม่เกี่ยวข้อง">ซ่อนโพสต์ไม่เกี่ยวข้อง <b id="noiseCount">–</b></button>
         <span class="hint" id="clearMsg" role="status" aria-live="polite"></span>
       </div>
       <div class="tablewrap">
@@ -679,6 +726,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
                    x:'#0F1419', twitter:'#0F1419', instagram:'#E1306C', ig:'#E1306C',
                    youtube:'#FF0000', pantip:'#7B2D8E', lemon8:'#FFC300', other:'#8C99B4'};
   const S = {q:'', platform:'', from:'', to:'', sort:'date', page:1, per:25, total:0,
+    noiseOn:false, rankMetric:'by_comments',
              open:new Set(), gran:'day', trend:null, terms:[], sentiment:'', issues:[], run:''};
   const num = v => (v === null || v === undefined || v === '') ? '0' : Number(v).toLocaleString('th-TH');
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -695,6 +743,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     if (S.sentiment) p.set('sentiment', S.sentiment);
     if (S.terms.length) p.set('terms', S.terms.join(','));
     if (S.run) p.set('run', S.run);
+    if (S.noiseOn) p.set('include_noise', '1');
     if (S.sort === 'likes') p.set('sort', 'likes');
     p.set('limit', String(S.per));
     p.set('offset', String((S.page - 1) * S.per));
@@ -739,6 +788,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       const cr = $('#clearRun');
       if (cr) cr.disabled = !S.run;
       loadRuns(); loadPosts(); loadStats(); loadTrend(); loadIssues(); loadDims();
+      loadSummary(); loadRankings();
     }));
     const cr = $('#clearRun');
     if (cr) {
@@ -772,7 +822,8 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       }
       if (msg) msg.textContent = 'ลบแล้ว ' + num(d.posts_deleted) + ' โพสต์ · เก็บไฟล์ ' +
         (d.archived || []).length + ' ไฟล์';
-      await Promise.all([loadPosts(), loadStats(), loadTrend(), loadIssues(), loadDims()]);
+      await Promise.all([loadPosts(), loadStats(), loadTrend(), loadIssues(), loadDims(),
+        loadSummary(), loadRankings()]);
     } catch (e) {
       if (msg) msg.textContent = 'ล้างไม่สำเร็จ: ' + e.message;
     } finally {
@@ -784,12 +835,71 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     }
   }
 
+  /* ── comment summary (LLM, cached server-side) ───────────── */
+  async function loadSummary(){
+    const host = $('#sumList'), themes = $('#sumThemes'), meta = $('#sumMeta');
+    if (!host) return;
+    let d;
+    try {
+      d = await fetch('/api/comments/summary?' + (S.run ? 'run=' + encodeURIComponent(S.run) + '&' : '')
+        + (S.noiseOn ? 'include_noise=1' : '')).then(r => r.json());
+    } catch (e) { return; }
+    const used = d.used || 0;
+    if (meta) meta.textContent = used
+      ? ('อ่าน ' + num(used) + ' คอมเมนต์' + (d.comments_available > used ? ' จาก ' + num(d.comments_available) : '')
+         + (d.source === 'llm' ? ' · สรุปด้วยโมเดล' : ' · สรุปจากคำซ้ำ'))
+      : 'ยังไม่มีข้อมูล';
+    if (!used) {
+      host.innerHTML = '<div class="empty"><b>ยังไม่มีคอมเมนต์ให้สรุป</b>เก็บคอมเมนต์จากโพสต์ก่อน</div>';
+      if (themes) themes.innerHTML = '';
+      return;
+    }
+    if ((d.bullets || []).length) {
+      host.innerHTML = d.bullets.map(b => '<div class="sumitem"><span class="dot"></span><span>' + esc(b) + '</span></div>').join('');
+    } else {
+      host.innerHTML = (d.themes || []).map(t => '<div class="sumitem"><span class="dot"></span><span>คำที่พูดถึงบ่อย: <b>'
+        + esc(t.label) + '</b> (' + num(t.n) + ')</span></div>').join('')
+        || '<div class="empty">สรุปไม่ได้ในขณะนี้</div>';
+    }
+    if (themes) themes.innerHTML = (d.themes || []).map(t =>
+      '<span class="tchip">' + esc(t.label) + (t.n ? ' · ' + num(t.n) : '') + '</span>').join('');
+  }
+
+  /* ── rankings: which posts / people carry the conversation ─ */
+  async function loadRankings(){
+    const host = $('#rankList');
+    if (!host) return;
+    let d;
+    try {
+      d = await fetch('/api/rankings?limit=6' + (S.run ? '&run=' + encodeURIComponent(S.run) : '')
+        + (S.noiseOn ? '&include_noise=1' : '')).then(r => r.json());
+    } catch (e) { return; }
+    const metric = S.rankMetric;
+    const rows = d[metric] || [];
+    if (!rows.length) { host.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
+    const val = x => metric === 'top_commenters' ? (x.n || 0)
+      : metric === 'by_likes' ? (x.likes || 0)
+      : metric === 'by_comments' ? (x.scraped_comments || 0) : (x.engagement || 0);
+    const max = Math.max(1, ...rows.map(val));
+    host.innerHTML = rows.map((x, i) => {
+      const label = metric === 'top_commenters' ? (x.author || '(ไม่ระบุ)')
+        : ((x.text || '').slice(0, 70) || x.url);
+      return '<div class="rankrow" title="' + esc(label) + '">'
+        + '<span class="no">' + (i + 1) + '</span>'
+        + '<span class="rt">' + esc(metric === 'top_commenters' ? label : (PLAT[x.platform] || x.platform || '') + ' · ' + label) + '</span>'
+        + '<span class="rv">' + num(val(x)) + '</span>'
+        + '<span class="bar"><span style="width:' + Math.round(val(x) / max * 100) + '%"></span></span>'
+        + '</div>';
+    }).join('');
+  }
+
   /* ── multi-dimensional charts ───────────────────────────── */
   async function loadDims(){
     if (!window.HarkenCharts) return;
     let d;
     try {
-      d = await fetch('/api/dims?days=7' + (S.run ? '&run=' + encodeURIComponent(S.run) : ''))
+      d = await fetch('/api/dims?days=7' + (S.run ? '&run=' + encodeURIComponent(S.run) : '')
+        + (S.noiseOn ? '&include_noise=1' : ''))
         .then(r => r.json());
     } catch (e) { return; }
     const win = d.window || {};
@@ -817,7 +927,11 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
 
   /* ── stats / hero / sentiment / authors / terms ─────────── */
   async function loadStats(){
-    const st = await fetch('/api/stats' + (S.run ? '?run=' + encodeURIComponent(S.run) : '')).then(r => r.json());
+    const st = await fetch('/api/stats?' + (S.run ? 'run=' + encodeURIComponent(S.run) + '&' : '')
+      + (S.noiseOn ? 'include_noise=1' : '')).then(r => r.json());
+    S.hiddenNoise = st.hidden_noise || 0;
+    const nb = $('#noiseCount'); if (nb) nb.textContent = num(S.hiddenNoise);
+    const nt = $('#noiseToggle'); if (nt) nt.setAttribute('aria-pressed', String(S.noiseOn));
     const done = (st.translated || 0) + (st.native_th || 0);
     const pct = st.total ? Math.round(done / st.total * 100) : 0;
     $('#ringArc').setAttribute('stroke-dashoffset', String(377 - 377 * pct / 100));
@@ -1174,7 +1288,8 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
 
   async function refresh(){
     try {
-      await Promise.all([loadStats(), loadTrend(), loadIssues(), loadPosts(), loadHealth(), loadRuns(), loadDims()]);
+      await Promise.all([loadStats(), loadTrend(), loadIssues(), loadPosts(), loadHealth(), loadRuns(), loadDims(),
+      loadSummary(), loadRankings()]);
       renderChips();
       $('#banner').classList.remove('on');
     } catch (e) {
@@ -1330,11 +1445,27 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
   });
 
   refresh();
+  document.addEventListener('click', (e) => {
+    const tab = e.target.closest('.rtab');
+    if (tab) {
+      S.rankMetric = tab.dataset.metric;
+      document.querySelectorAll('.rtab').forEach(b =>
+        b.setAttribute('aria-pressed', String(b === tab)));
+      loadRankings().catch(() => {});
+      return;
+    }
+    if (e.target.closest('#noiseToggle')) {
+      S.noiseOn = !S.noiseOn;
+      Promise.all([loadPosts(), loadStats(), loadTrend(), loadIssues(), loadDims(),
+                   loadSummary(), loadRankings()]).catch(() => {});
+    }
+  });
+
   setInterval(() => { loadHealth().catch(() => {}); }, 2000);
   setInterval(() => { loadPosts().catch(() => {}); }, 8000);
   setInterval(() => {
     loadStats().catch(() => {}); loadTrend().catch(() => {}); loadIssues().catch(() => {});
-    loadDims().catch(() => {});
+    loadDims().catch(() => {}); loadRankings().catch(() => {});
   }, 60000);
 })();
 </script>

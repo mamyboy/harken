@@ -42,6 +42,12 @@ CREATE TABLE IF NOT EXISTS post_comments (
 );
 CREATE INDEX IF NOT EXISTS idx_comments_url ON post_comments(url);
 
+CREATE TABLE IF NOT EXISTS analysis_cache (
+    key         TEXT PRIMARY KEY,
+    payload     TEXT,
+    updated_iso TEXT
+);
+
 CREATE TABLE IF NOT EXISTS ingest_log (
     id      INTEGER PRIMARY KEY AUTOINCREMENT,
     files   INTEGER,
@@ -81,4 +87,13 @@ def init():
         if 'run' not in cols:
             conn.execute('ALTER TABLE posts ADD COLUMN run TEXT')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_posts_run ON posts(run)')
+        # migrate DBs created before the relevance filter existed
+        cols = {r['name'] for r in conn.execute('PRAGMA table_info(posts)')}
+        for col, ddl in (('noise', 'INTEGER DEFAULT 0'),
+                         ('noise_why', "TEXT DEFAULT ''"),
+                         ('noise_checked', 'INTEGER DEFAULT 0')):
+            if col not in cols:
+                conn.execute('ALTER TABLE posts ADD COLUMN %s %s' % (col, ddl))
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_posts_noise ON posts(noise)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_comments_url_sent ON post_comments(url, sentiment)')
     return DB_PATH

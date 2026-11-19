@@ -53,6 +53,8 @@ def _platform(name, url=''):
 _RE = __import__('re')
 UI_TAIL = _RE.compile(r'\s*(?:ดูเพิ่มเติม|See more|see more)\s*$')
 
+MAX_COMMENTS_PER_POST = 100   # analysis cap: beyond this the signal stops improving
+
 CHROME_RE = _RE.compile(
     r'(?is)\b\d+\s*followers?\b.*\bfollow\b|\bquotes?\s+\d+\b.*\bmessage\b')
 
@@ -202,7 +204,7 @@ def ingest(project=PROJECT, verbose=False):
                 else:
                     added += 1
 
-                for i, c in enumerate(p.get('comments') or []):
+                for i, c in enumerate((p.get('comments') or [])[:MAX_COMMENTS_PER_POST]):
                     curl = c.get('url') or f'{url}#c{i}'
                     ctext = UI_TAIL.sub('', (c.get('text') or '').strip())
                     if _looks_like_profile_card(ctext):
