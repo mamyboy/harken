@@ -117,6 +117,9 @@ def stats(run: str = ''):
         translated = conn.execute(
             "SELECT COUNT(*) c FROM posts WHERE text_th <> '' AND text_th <> text_raw"
             + (' AND ' + ' AND '.join(rw) if rw else ''), rp).fetchone()['c']
+        native_th = conn.execute(
+            "SELECT COUNT(*) c FROM posts WHERE COALESCE(text_th,'') = '' OR text_th = text_raw"
+            + (' AND ' + ' AND '.join(rw) if rw else ''), rp).fetchone()['c']
         comments = conn.execute('SELECT COUNT(*) c FROM post_comments').fetchone()['c']
         comment_sentiment = [dict(r) for r in conn.execute(
             "SELECT COALESCE(NULLIF(sentiment,''),'none') s, COUNT(*) n FROM post_comments "
@@ -136,7 +139,8 @@ def stats(run: str = ''):
         texts = [r['text_th'] or r['text_raw'] or '' for r in conn.execute(
             'SELECT text_th, text_raw FROM posts ' + W + ' LIMIT 800', rp)]
 
-    return {'total': total, 'translated': translated, 'comments': comments,
+    return {'total': total, 'translated': translated, 'native_th': native_th,
+            'comments': comments,
             'comment_sentiment': comment_sentiment, 'posts_with_comments': posts_with_comments,
             'by_platform': by_platform, 'by_day': by_day, 'by_sentiment': by_sentiment,
             'top_authors': top_authors, 'top_terms': top_terms(texts),

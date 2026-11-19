@@ -51,24 +51,26 @@
   /* ── 1. heatmap: weekday x hour ───────────────────────────── */
   registry.heatmap = {
     label: 'ความหนาแน่นโพสต์ตามวันและชั่วโมง',
-    render: function (d) {
+    render: function (d, opts) {
       if (!d || !d.rows || !d.cols) return empty();
       var cells = d.cells || [], max = d.max || 0;
       if (!cells.length) return empty('ยังไม่มีโพสต์ในช่วงนี้');
-      var cw = 18, ch = 25, gap = 3.5, left = 34, top = 16;
-      var w = left + d.cols.length * (cw + gap), h = top + d.rows.length * (ch + gap) + 46;
+      var gap = 3.5, left = 34, top = 16, ch = 22;
+      var avail = (opts && opts.width ? opts.width : 560) - left - 6;
+      var cw = Math.max(11, Math.min(28, avail / d.cols.length - gap));
+      var w = left + d.cols.length * (cw + gap), h = top + d.rows.length * (ch + gap) + 44;
       var map = {};
       cells.forEach(function (c) { map[c.r + ':' + c.c] = c.n; });
       var out = '';
       // hour ticks
       d.cols.forEach(function (col, i) {
-        if (i % 3) return;
+        if (i % (cw < 14 ? 6 : 3)) return;
         out += '<text x="' + (left + i * (cw + gap) + cw / 2) + '" y="' + (top - 5) +
-          '" font-size="9" text-anchor="middle" fill="' + V.muted2 + '">' + esc(col) + '</text>';
+          '" font-size="10" text-anchor="middle" fill="' + V.muted2 + '">' + esc(col) + '</text>';
       });
       d.rows.forEach(function (row, r) {
         out += '<text x="' + (left - 7) + '" y="' + (top + r * (ch + gap) + ch / 2 + 3.5) +
-          '" font-size="10" text-anchor="end" fill="' + V.muted + '">' + esc(row) + '.</text>';
+          '" font-size="10.5" text-anchor="end" fill="' + V.muted + '">' + esc(row) + '.</text>';
         d.cols.forEach(function (col, c) {
           var n = map[r + ':' + c] || 0;
           var fill = n ? ramp(max ? n / max : 0) : 'var(--line)';
@@ -93,7 +95,7 @@
   /* ── 2. stacked bars: posts per day per platform ──────────── */
   registry.stackedBars = {
     label: 'โพสต์รายวันแยกแพลตฟอร์ม',
-    render: function (d) {
+    render: function (d, opts) {
       if (!d || !d.days || !d.days.length) return empty();
       var series = (d.series || []).filter(function (s) { return s.values && s.values.length; });
       if (!series.length) return empty('ยังไม่มีโพสต์ในช่วงนี้');
@@ -101,7 +103,7 @@
         return series.reduce(function (a, s) { return a + (s.values[i] || 0); }, 0);
       });
       var max = Math.max.apply(null, sums.concat([1]));
-      var w = 420, h = 190, left = 26, bottom = 34, top = 8;
+      var w = (opts && opts.width) || 420, h = 190, left = 26, bottom = 34, top = 8;
       var plotW = w - left - 6, plotH = h - bottom - top;
       var bw = Math.max(6, Math.min(26, plotW / d.days.length - 8));
       var out = '';
@@ -149,7 +151,8 @@
       var items = (d || []).filter(function (x) { return x.n > 0; });
       if (!items.length) return empty();
       var total = items.reduce(function (a, x) { return a + x.n; }, 0);
-      var w = 330, h = 176, cx = 82, cy = 88, r = 63, ir = 40;
+      var w = (opts && opts.width) || 330, h = 172, cx = 80, cy = 86, r = 60, ir = 38;
+      var legX = Math.max(140, Math.round(w * 0.46));
       var colors = ['var(--violet)', 'var(--cyan)', 'var(--pos)', 'var(--neu)', 'var(--neg)', '#8C99B4'];
       var ang = -Math.PI / 2, out = '';
       items.forEach(function (it, i) {
@@ -173,8 +176,8 @@
       var ly = 40;
       items.forEach(function (it, i) {
         var col = (opts && opts.colors && opts.colors[i]) || colors[i % colors.length];
-        out += '<rect x="162" y="' + (ly - 7) + '" width="8" height="8" rx="2" fill="' + col + '"></rect>';
-        out += '<text x="175" y="' + ly + '" font-size="10.5" fill="' + V.ink2 + '">' +
+        out += '<rect x="' + legX + '" y="' + (ly - 7) + '" width="8" height="8" rx="2" fill="' + col + '"></rect>';
+        out += '<text x="' + (legX + 13) + '" y="' + ly + '" font-size="10.5" fill="' + V.ink2 + '">' +
           esc(String(it.label || it.platform).slice(0, 14)) + '</text>';
         out += '<text x="' + (w - 4) + '" y="' + ly + '" font-size="10" text-anchor="end" fill="' +
           V.muted + '">' + Math.round(it.n / total * 100) + '%</text>';
@@ -187,22 +190,26 @@
   /* ── 4. scatter: authors, posts vs likes ──────────────────── */
   registry.scatter = {
     label: 'ผู้โพสต์: จำนวนโพสต์กับไลก์',
-    render: function (d) {
+    render: function (d, opts) {
       var items = (d || []).filter(function (a) { return a.posts > 0; });
       if (!items.length) return empty();
-      var w = 430, h = 218, left = 48, bottom = 34, top = 18, right = 12;
+      var w = (opts && opts.width) || 430, h = 200, left = 48, bottom = 34, top = 18, right = 12;
       var pw = w - left - right, ph = h - bottom - top;
-      var maxX = Math.max.apply(null, items.map(function (a) { return a.posts; })) || 1;
+      // pad the x domain so a single-post author is not pinned to the right edge
+      var rawX = Math.max.apply(null, items.map(function (a) { return a.posts; })) || 1;
+      var maxX = Math.max(3, Math.ceil(rawX * 1.15));
       var maxY = Math.max.apply(null, items.map(function (a) { return a.likes; })) || 1;
       var maxE = Math.max.apply(null, items.map(function (a) { return a.engagement || 1; })) || 1;
       var out = '';
-      for (var g = 0; g <= 2; g++) {
-        var y = top + ph * (1 - g / 2);
+      // sqrt scale on Y: one viral post (32k reactions) would otherwise flatten the rest
+      var yPos = function (v) { return top + ph * (1 - Math.sqrt(Math.max(0, v) / maxY)); };
+      [0, 0.5, 1].forEach(function (g) {
+        var y = top + ph * (1 - g);
         out += '<line x1="' + left + '" y1="' + y + '" x2="' + (w - right) + '" y2="' + y +
           '" stroke="' + V.line + '" stroke-dasharray="' + (g ? '2 3' : '0') + '"></line>';
         out += '<text x="' + (left - 5) + '" y="' + (y + 3.5) + '" font-size="9" text-anchor="end" fill="' +
-          V.muted2 + '">' + num(Math.round(maxY * g / 2)) + '</text>';
-      }
+          V.muted2 + '">' + num(Math.round(maxY * g * g)) + '</text>';
+      });
       out += '<text x="' + (left - 5) + '" y="' + (top - 3) + '" font-size="8.5" text-anchor="end" fill="' +
         V.muted2 + '">ไลก์</text>';
       ['pos', 'neu', 'neg', 'none'].forEach(function () {});
@@ -213,8 +220,8 @@
         seen[kx] = (seen[kx] || 0) + 1;
         var j = (seen[kx] - 1);
         var cx = left + pw * (a.posts / maxX) + (j ? (j % 2 ? 4 : -4) * Math.ceil(j / 2) : 0);
-        var cy = top + ph * (1 - (a.likes / maxY)) + (j ? (j % 2 ? -3 : 3) : 0);
-        var rr = 3.5 + 9 * Math.sqrt((a.engagement || 1) / maxE);
+        var cy = yPos(a.likes) + (j ? (j % 2 ? -3 : 3) : 0);
+        var rr = 3 + 6 * Math.sqrt((a.engagement || 1) / maxE);
         out += '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + rr.toFixed(1) +
           '" fill="' + (sentColor[a.sentiment] || '#B7C0D4') + '" fill-opacity=".72" stroke="' +
           (sentColor[a.sentiment] || '#8C99B4') + '">' +
@@ -223,18 +230,22 @@
       });
       items.slice(0, 3).forEach(function (a, i) {
         var cx = left + pw * (a.posts / maxX);
-        var cy = top + ph * (1 - (a.likes / maxY));
+        var cy = yPos(a.likes);
         // alternate the label side so neighbouring bubbles don't stack their text
         var dx = i % 2 ? -12 : 12, anchor = i % 2 ? 'end' : 'start';
         out += '<text x="' + (cx + dx) + '" y="' + (cy - (i % 2 ? 9 : 5)) + '" font-size="9" ' +
           'text-anchor="' + anchor + '" fill="' + V.muted + '">' +
           esc(String(a.author).slice(0, 14)) + '</text>';
       });
-      // x axis labels
-      out += '<text x="' + left + '" y="' + (h - bottom + 14) + '" font-size="9" fill="' + V.muted2 +
-        '">1 โพสต์</text>';
-      out += '<text x="' + (w - right) + '" y="' + (h - bottom + 14) + '" font-size="9" text-anchor="end" ' +
-        'fill="' + V.muted2 + '">' + num(maxX) + ' โพสต์</text>';
+      // x axis: ticks so the horizontal position is readable
+      [0, Math.round(maxX / 2), maxX].forEach(function (v, i) {
+        var xx = left + pw * (v / maxX);
+        out += '<text x="' + xx.toFixed(1) + '" y="' + (h - bottom + 14) + '" font-size="9" ' +
+          'text-anchor="' + (i === 0 ? 'start' : i === 2 ? 'end' : 'middle') +
+          '" fill="' + V.muted2 + '">' + num(v) + '</text>';
+      });
+      out += '<text x="' + (w - right) + '" y="' + (top - 3) + '" font-size="8.5" text-anchor="end" ' +
+        'fill="' + V.muted2 + '">โพสต์ →</text>';
       out += '<circle cx="' + left + '" cy="' + (h - 8) + '" r="3.5" fill="#9AA5BC"></circle>';
       out += '<circle cx="' + (left + 13) + '" cy="' + (h - 8) + '" r="7" fill="#9AA5BC" fill-opacity=".6" stroke="#9AA5BC"></circle>';
       out += '<text x="' + (left + 24) + '" y="' + (h - 5) + '" font-size="8.5" fill="' + V.muted2 +
@@ -246,10 +257,11 @@
   /* ── 5. area: cumulative posts ────────────────────────────── */
   registry.area = {
     label: 'โพสต์สะสม',
-    render: function (d) {
+    render: function (d, opts) {
       if (!d || !d.values || !d.values.length) return empty();
       var vals = d.values, labels = d.labels || [];
-      var w = 380, h = 130, left = 24, bottom = 22, top = 10, right = 8;
+      var w = (opts && opts.width) || 380;
+      var h = w > 900 ? 210 : 150, left = 38, bottom = 24, top = 16, right = 12;
       var pw = w - left - right, ph = h - bottom - top;
       var max = Math.max.apply(null, vals.concat([1]));
       var pts = vals.map(function (v, i) {
@@ -263,8 +275,15 @@
       var out = '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
         '<stop offset="0%" stop-color="var(--violet)" stop-opacity=".32"/>' +
         '<stop offset="100%" stop-color="var(--violet)" stop-opacity="0"/></linearGradient></defs>';
-      out += '<line x1="' + left + '" y1="' + (top + ph) + '" x2="' + (w - right) + '" y2="' + (top + ph) +
-        '" stroke="' + V.line + '"></line>';
+      [0, 0.5, 1].forEach(function (f) {
+        var yy = top + ph * (1 - f);
+        out += '<line x1="' + left + '" y1="' + yy.toFixed(1) + '" x2="' + (w - right) +
+          '" y2="' + yy.toFixed(1) + '" stroke="' + V.line + '" stroke-dasharray="' +
+          (f ? '2 3' : '0') + '"></line>';
+        out += '<text x="' + (left - 5) + '" y="' + (yy + 3.5).toFixed(1) +
+          '" font-size="9" text-anchor="end" fill="' + V.muted2 + '">' +
+          num(Math.round(max * f)) + '</text>';
+      });
       out += '<path d="' + area + '" fill="url(#' + gid + ')"></path>';
       out += '<path d="' + line + '" fill="none" stroke="var(--violet)" stroke-width="2.2" ' +
         'stroke-linejoin="round"></path>';
@@ -289,7 +308,7 @@
       items = (items || []).filter(function (x) { return x.value > 0; });
       if (!items.length) return empty();
       opts = opts || {};
-      var w = 340, rowH = 22, h = items.length * rowH + 8;
+      var w = (opts && opts.width) || 340, rowH = 22, h = items.length * rowH + 8;
       var max = Math.max.apply(null, items.map(function (x) { return x.value; })) || 1;
       var labelW = opts.labelW || 108, out = '';
       items.forEach(function (it, i) {
@@ -329,6 +348,13 @@
     }
   };
 
+  var mounts = [];  // {name, el, data, opts} — re-rendered on resize
+
+  function widthOf(el) {
+    var w = el.getBoundingClientRect().width || el.clientWidth || 0;
+    return w > 120 ? Math.round(w) : 0;
+  }
+
   var HarkenCharts = {
     version: '1.0.0',
     register: function (name, def) {
@@ -350,8 +376,16 @@
         el.innerHTML = empty('ไม่พบกราฟ: ' + name);
         return null;
       }
+      var o = {};
+      for (var k in (opts || {})) o[k] = opts[k];
+      var measured = widthOf(el);
+      if (measured) o.width = measured;
+      var rec = null;
+      for (var i = 0; i < mounts.length; i++) if (mounts[i].el === el) { rec = mounts[i]; break; }
+      if (rec) { rec.name = name; rec.data = data; rec.opts = opts || {}; }
+      else mounts.push({ name: name, el: el, data: data, opts: opts || {} });
       try {
-        el.innerHTML = def.render(data, opts || {});
+        el.innerHTML = def.render(data, o);
       } catch (err) {
         el.innerHTML = empty('วาดกราฟไม่สำเร็จ');
         if (window.console) console.warn('[charts]', name, err);
@@ -360,6 +394,22 @@
     },
     empty: empty
   };
+
+  var rt;
+  global.addEventListener('resize', function () {
+    clearTimeout(rt);
+    rt = setTimeout(function () {
+      mounts.forEach(function (m) {
+        var def2 = registry[m.name];
+        if (!def2 || !document.body.contains(m.el)) return;
+        var o = {};
+        for (var k in m.opts) o[k] = m.opts[k];
+        var mw = widthOf(m.el);
+        if (mw) o.width = mw;
+        try { m.el.innerHTML = def2.render(m.data, o); } catch (e) { /* keep old */ }
+      });
+    }, 180);
+  });
 
   global.HarkenCharts = HarkenCharts;
 })(window);
