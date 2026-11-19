@@ -243,6 +243,8 @@ def stats(run: str = '', include_noise: int = 0):
             'COALESCE(SUM(reposts),0) rp FROM posts ' + W, rp).fetchone()
         texts = [r['text_th'] or r['text_raw'] or '' for r in conn.execute(
             'SELECT text_th, text_raw FROM posts ' + W + ' LIMIT 800', rp)]
+        news_total = conn.execute(
+            "SELECT COUNT(*) c FROM posts WHERE COALESCE(kind,'social') = 'news'").fetchone()['c']
         hidden_noise = conn.execute(
             "SELECT COUNT(*) c FROM posts WHERE COALESCE(noise,0) = 1 "
             "AND COALESCE(kind,'social') = 'social'"
@@ -250,7 +252,7 @@ def stats(run: str = '', include_noise: int = 0):
             noise_params).fetchone()['c']
 
     return {'revision': _revision(), 'total': total, 'translated': translated,
-            'native_th': native_th,
+            'native_th': native_th, 'news_total': news_total,
             'hidden_noise': hidden_noise, 'comments': comments,
             'comment_sentiment': comment_sentiment, 'posts_with_comments': posts_with_comments,
             'by_platform': by_platform, 'by_day': by_day, 'by_sentiment': by_sentiment,
@@ -395,6 +397,7 @@ def trend(gran: str = 'day', days: int = Query(7, ge=1, le=30), run: str = '',
     import datetime as dt
     rw, rp = [], []
     _run_clause(rw, rp, run)
+    _kind_clause(rw)
     _noise_clause(rw, include_noise)
     with db.db() as conn:
         rows = [r['posted_iso'] for r in conn.execute(

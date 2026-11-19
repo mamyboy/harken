@@ -112,7 +112,7 @@ a:hover{text-decoration:underline}
 .hero h2{margin:10px 0 0; font-size:19px; font-weight:700; letter-spacing:-.01em; text-align:center; position:relative; z-index:1}
 .hero .role{font-size:12.5px; color:rgba(255,255,255,.9); margin-top:1px; text-align:center; position:relative; z-index:1}
 .hero .ringcap{font-size:11.5px; color:rgba(255,255,255,.92); margin-top:7px; text-align:center; position:relative; z-index:1}
-.hero .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:100%; margin-top:auto;
+.hero .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; width:100%; margin-top:auto;
   border-top:1px solid rgba(255,255,255,.28); padding-top:12px; text-align:center; position:relative; z-index:1}
 .hero .stats .k{font-size:11px; color:rgba(255,255,255,.86); display:block}
 .hero .stats .v{font-size:19px; font-weight:700; font-variant-numeric:tabular-nums; display:block; margin-top:1px}
@@ -121,6 +121,16 @@ a:hover{text-decoration:underline}
 .hero .mood span{font-size:11.5px; font-weight:600; background:rgba(255,255,255,.18);
   border:1px solid rgba(255,255,255,.3); border-radius:99px; padding:2px 9px;
   font-variant-numeric:tabular-nums}
+
+/* ── topic bars (was radar) ───────────────────────────────── */
+.barwrap{display:flex; flex-direction:column; gap:9px}
+.brow{display:grid; grid-template-columns:minmax(0,132px) minmax(0,1fr) 40px; gap:10px; align-items:center}
+.brow .bl{font-size:12px; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.brow .bt{position:relative; height:16px; background:#EEF2F8; border-radius:5px; overflow:hidden}
+.brow .bf{position:absolute; left:0; top:0; bottom:0; background:linear-gradient(90deg,#4C6FFF,#6D28D9); border-radius:5px;
+  transition:width .35s ease}
+.brow .bp{position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--cyan); border-radius:1px}
+.brow .bn{font-size:12px; text-align:right; color:var(--ink)}
 
 /* ── radar ────────────────────────────────────────────────── */
 .radar-wrap{display:grid; grid-template-columns:minmax(0,436px) minmax(0,1fr); gap:6px 14px; align-items:center}
@@ -542,35 +552,27 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     <div class="grid-hero" id="overview">
       <section class="hero" aria-label="ภาพรวมแหล่งข้อมูล">
         <div class="ring">
-          <svg width="148" height="148" viewBox="0 0 150 150" role="img" aria-label="สัดส่วนโพสต์ที่แปลเป็นไทยแล้ว">
-            <circle cx="75" cy="75" r="60" fill="none" stroke="rgba(255,255,255,.32)" stroke-width="9"/>
-            <circle id="ringArc" cx="75" cy="75" r="60" fill="none" stroke="#fff" stroke-width="9"
-              stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="377"
-              transform="rotate(-90 75 75)" style="transition:stroke-dashoffset .7s ease"/>
-            <circle cx="75" cy="75" r="50" fill="rgba(255,255,255,.16)" stroke="rgba(255,255,255,.55)" stroke-width="1.5"/>
-          </svg>
-          <span class="avatar-txt" id="ringPct">–</span>
-        </div>
-        <div class="ringcap">แปลเป็นไทยแล้ว · <span id="ringSub">–</span></div>
+          <div class="ringcap" style="margin:0 0 10px"><span class="pill" style="background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3)">พร้อมอ่าน <b class="num" id="ringInline">–</b></span></div>
         <div class="mood" id="heroMood">–</div>
-        <h2 id="heroTitle">Threads Feed</h2>
-        <div class="role" id="heroRole">แหล่งข้อมูลจริง · Satun Social Listening</div>
+        <h2 id="heroTitle">ภาพรวมสื่อสังคมออนไลน์</h2>
+        <div class="role" id="heroRole">Facebook · Threads · TikTok — แยกจากข่าวเว็บด้านล่าง</div>
         <div class="stats">
           <div><span class="k">โพสต์</span><span class="v num" id="heroTotal">–</span></div>
-          <div><span class="k">ประเด็น</span><span class="v num" id="heroIssues">–</span></div>
-          <div><span class="k">มีส่วนร่วม</span><span class="v num" id="heroEng">–</span></div>
+          <div><span class="k">คอมเมนต์</span><span class="v num" id="heroComments">–</span></div>
+          <div><span class="k">ไลก์รวม</span><span class="v num" id="heroEng">–</span></div>
+          <div><span class="k">ข่าวเว็บ</span><span class="v num" id="heroNews">–</span></div>
         </div>
       </section>
 
       <section class="card" aria-label="องค์ประกอบประเด็น">
-        <div class="card-head"><h2>องค์ประกอบประเด็น</h2>
-          <span class="hint">เทียบ 7 วันนี้กับช่วงก่อนหน้า</span></div>
+        <div class="card-head"><h2>ประเด็นที่ถูกพูดถึง</h2>
+          <span class="hint">จำนวนโพสต์ใน 7 วันล่าสุด</span></div>
         <div class="card-body">
           <div class="radar-wrap">
             <div class="radar" id="radar"></div>
             <div class="legend">
-              <div class="item"><span class="sw" style="background:var(--brand)"></span>ช่วงนี้</div>
-              <div class="item"><span class="sw" style="background:var(--cyan)"></span>ช่วงก่อนหน้า</div>
+              <div class="item"><span class="sw" style="background:var(--brand)"></span>จำนวนโพสต์ 7 วันล่าสุด</div>
+              <div class="item"><span class="sw" style="background:var(--cyan);height:12px;width:2px;border-radius:1px"></span>ช่วงก่อนหน้า</div>
               <div class="sub" id="radarNote">แกนคือประเด็นที่ถูกพูดถึงมากที่สุด<br>ค่ายิ่งสูง = จำนวนโพสต์ยิ่งมาก</div>
             </div>
           </div>
@@ -584,6 +586,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       <section class="card" aria-label="แนวโน้มการโพสต์">
         <div class="card-head">
           <h2>แนวโน้มการโพสต์</h2>
+          <span class="hint" id="trendScope" style="margin-left:auto;margin-right:auto"></span>
           <div class="seg" role="group" aria-label="ความละเอียดเวลา">
             <button type="button" id="segHour" aria-pressed="false">รายชั่วโมง</button>
             <button type="button" id="segDay" aria-pressed="true">รายวัน</button>
@@ -1154,13 +1157,13 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     const nt = $('#noiseToggle'); if (nt) nt.setAttribute('aria-pressed', String(S.noiseOn));
     const done = (st.translated || 0) + (st.native_th || 0);
     const pct = st.total ? Math.round(done / st.total * 100) : 0;
-    $('#ringArc').setAttribute('stroke-dashoffset', String(377 - 377 * pct / 100));
-    $('#ringPct').textContent = pct + '%';
-    $('#ringSub').textContent = num(done) + ' / ' + num(st.total) + ' โพสต์';
+    const rin = $('#ringInline');
+    if (rin) rin.textContent = num(done) + '/' + num(st.total) + ' (' + pct + '%)';
     $('#heroTotal').textContent = num(st.total);
     const eng = st.engagement || {likes:0, replies:0, reposts:0};
     $('#heroEng').textContent = num(eng.likes);
-    $('#heroIssues').textContent = num((S.issues || []).length);
+    const hc = $('#heroComments'); if (hc) hc.textContent = num(st.comments || 0);
+    const hn = $('#heroNews'); if (hn) hn.textContent = num(st.news_total || 0);
     $('#heroRole').textContent = (st.by_platform || []).map(p => (PLAT[p.platform] || p.platform) + ' ' + num(p.n)).join(' · ') || 'ยังไม่มีข้อมูล';
 
     const rows = st.by_sentiment || [];
@@ -1169,7 +1172,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     const smap = {};
     rows.forEach(r => { smap[r.s] = r.n; });
     $('#heroMood').innerHTML = ['pos', 'neu', 'neg']
-      .map(k => '<span>' + SENT[k].e + ' ' + num(smap[k] || 0) + '</span>').join('');
+      .map(k => '<span>' + SENT[k].e + ' ' + esc(SENT[k].n) + ' <b class="num">' + num(smap[k] || 0) + '</b></span>').join('');
     $('#sent').innerHTML = !rows.length
       ? '<div class="empty"><b>ยังไม่มีข้อมูลอารมณ์</b>เพิ่มโพสต์แล้วระบบจะจำแนกอารมณ์ให้อัตโนมัติ</div>'
       : onlyNone
@@ -1211,10 +1214,10 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
     $('#statList').innerHTML = [
       ['โพสต์ทั้งหมด', num(st.total), 'M3 4.5h14M3 10h14M3 15.5h9'],
       ['พร้อมอ่าน (ไทย/แปลแล้ว)', num(done) + ' · ' + pct + '%', 'M2.5 8h11M9.5 4l4 4-4 4'],
-      ['ไลก์รวม', num(eng.likes), 'M8 13.6S2.2 10 2.2 5.9a3.1 3.1 0 0 1 5.8-1.1 3.1 3.1 0 0 1 5.8 1.1c0 4.1-5.8 7.7-5.8 7.7Z'],
-      ['ตอบกลับ', num(eng.replies), 'M3 4h10v6H6l-3 3V4Z'],
-      ['รีโพสต์', num(eng.reposts), 'M4 6.5 8 3l4 3.5M12 9.5 8 13l-4-3.5'],
-      ['คอมเมนต์', num(st.comments || 0) + ' ข้อความ', 'M3.5 4h13v8h-8l-5 4V4Z'],
+      ['ไลก์รวม (แพลตฟอร์มรายงาน)', num(eng.likes), 'M8 13.6S2.2 10 2.2 5.9a3.1 3.1 0 0 1 5.8-1.1 3.1 3.1 0 0 1 5.8 1.1c0 4.1-5.8 7.7-5.8 7.7Z'],
+      ['ตอบกลับ (แพลตฟอร์มรายงาน)', num(eng.replies), 'M3 4h10v6H6l-3 3V4Z'],
+      ['รีโพสต์ (แพลตฟอร์มรายงาน)', num(eng.reposts), 'M4 6.5 8 3l4 3.5M12 9.5 8 13l-4-3.5'],
+      ['คอมเมนต์ (ที่ระบบเก็บได้)', num(st.comments || 0) + ' ข้อความ', 'M3.5 4h13v8h-8l-5 4V4Z'],
       ['ทิศทางคอมเมนต์', commentMood, 'M10 2.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15ZM7 8h.01M13 8h.01M7 12c.8 1.2 1.9 1.8 3 1.8s2.2-.6 3-1.8'],
       ['ผู้โพสต์', num(au.length) + ' คน', 'M10 7a3.1 3.1 0 1 0 0-6.2A3.1 3.1 0 0 0 10 7ZM4 16.2c.9-2.9 3.2-4.4 6-4.4s5.1 1.5 6 4.4']
     ].map(r =>
@@ -1228,50 +1231,26 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
   function drawRadar(list){
     const host = $('#radar');
     const items = (list || []).slice(0, 6);
-    if (items.length < 3){
-      host.innerHTML = '<div class="empty"><b>ยังวาดกราฟองค์ประกอบไม่ได้</b>ต้องมีอย่างน้อย 3 ประเด็น</div>';
+    if (!items.length){
+      host.innerHTML = '<div class="empty"><b>ยังไม่มีประเด็นให้เทียบ</b>ต้องมีโพสต์อย่างน้อย 1 เรื่องใน 7 วันล่าสุด</div>';
       return;
     }
-    const W = 420, H = 320, cx = W/2, cy = H/2 + 4, R = 106;
-    const n = items.length;
-    const max = Math.max(1, ...items.map(i => Math.max(i.n_posts, i.prev_posts)));
-    const ang = i => -Math.PI/2 + i * 2*Math.PI/n;
-    const pt = (i, v) => [cx + Math.cos(ang(i)) * R * (v/max), cy + Math.sin(ang(i)) * R * (v/max)];
-
-    let rings = '';
-    [0.25, 0.5, 0.75, 1].forEach(f => {
-      const p = items.map((_, i) => {
-        const x = cx + Math.cos(ang(i)) * R * f, y = cy + Math.sin(ang(i)) * R * f;
-        return (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
-      }).join(' ');
-      rings += '<path class="ring" d="' + p + ' Z"/>';
-    });
-    let axes = '', labels = '';
-    items.forEach((it, i) => {
-      const x = cx + Math.cos(ang(i)) * R, y = cy + Math.sin(ang(i)) * R;
-      axes += '<line class="axis" x1="' + cx + '" y1="' + cy + '" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) + '"/>';
-      const lx = cx + Math.cos(ang(i)) * (R + 26), ly = cy + Math.sin(ang(i)) * (R + 22);
-      const anchor = Math.abs(lx - cx) < 12 ? 'middle' : (lx > cx ? 'start' : 'end');
-      const name = String(it.label).length > 13 ? String(it.label).slice(0, 12) + '…' : it.label;
-      labels += '<text class="lab" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor + '">' + esc(name) + '</text>';
-    });
-    const poly = a => items.map((it, i) => {
-      const q = pt(i, it[a]); return (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1);
-    }).join(' ') + ' Z';
-    const dots = items.map((it, i) => {
-      const q = pt(i, it.n_posts);
-      return '<circle class="dot" cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="3"/>';
-    }).join('');
-
-    host.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="กราฟเรดาร์ประเด็นสนทนา">' +
-      rings + axes +
-      (items.every(i => !i.prev_posts) ? '' : '<path class="poly-prev" d="' + poly('prev_posts') + '"/>') +
-      '<path class="poly-cur" d="' + poly('n_posts') + '"/>' +
-      dots + labels + '</svg>';
-    const noPrev = items.every(i => !i.prev_posts);
-    $('#radarNote').innerHTML = noPrev
-      ? 'ช่วงก่อนหน้ายังไม่มีโพสต์ให้เทียบ<br>แสดงเฉพาะ 7 วันล่าสุด · ' + n + ' ประเด็น'
-      : 'แกนคือ ' + n + ' ประเด็นที่ถูกพูดถึงมากที่สุด<br>ค่ายิ่งสูง = จำนวนโพสต์ยิ่งมาก';
+    const max = Math.max(1, ...items.map(i => Math.max(i.n_posts || 0, i.prev_posts || 0)));
+    const hasPrev = items.some(i => i.prev_posts > 0);
+    host.innerHTML = '<div class="barwrap">' + items.map(it => {
+      const w = Math.round((it.n_posts || 0) / max * 100);
+      const pw = Math.round((it.prev_posts || 0) / max * 100);
+      const name = String(it.label || '').slice(0, 22);
+      return '<div class="brow">'
+        + '<span class="bl" title="' + esc(it.label) + '">' + esc(name) + '</span>'
+        + '<span class="bt"><span class="bf" style="width:' + w + '%"></span>'
+        + (hasPrev ? '<span class="bp" style="left:' + pw + '%"></span>' : '') + '</span>'
+        + '<span class="bn num">' + num(it.n_posts || 0) + '</span>'
+        + '</div>';
+    }).join('') + '</div>';
+    $('#radarNote').innerHTML = hasPrev
+      ? 'แท่งทึบ = 7 วันล่าสุด · ขีดตั้ง = จำนวนโพสต์ช่วงก่อนหน้า'
+      : 'ช่วงก่อนหน้ายังไม่มีโพสต์ให้เทียบ · แสดงเฉพาะ 7 วันล่าสุด';
   }
 
   /* ── trend ──────────────────────────────────────────────── */
@@ -1305,6 +1284,10 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       grid += '<line class="gridline" x1="' + X0 + '" y1="' + gy.toFixed(1) + '" x2="' + XR + '" y2="' + gy.toFixed(1) + '"/>' +
         '<text class="axis-lab" x="' + (X0-8) + '" y="' + (gy+4).toFixed(1) + '" text-anchor="end">' + num(val) + '</text>';
     }
+    const scope = $('#trendScope');
+    if (scope) scope.textContent = d.labels.length
+      ? d.labels[0] + ' ถึง ' + d.labels[d.labels.length - 1] + ' · ' + num(d.cur.reduce((a, b) => a + b, 0)) + ' โพสต์ในช่วงนี้'
+      : '';
     const every = d.labels.length > 10 ? 3 : 1;
     const xlab = d.labels.map((l,i) => i % every ? '' :
       '<text class="axis-lab" x="' + xx(i).toFixed(1) + '" y="' + (Y1+20) + '" text-anchor="middle">' + esc(l) + '</text>').join('');
@@ -1384,7 +1367,7 @@ body.dr-on::after{content:""; position:fixed; inset:0; background:rgba(15,27,51,
       : '<div class="empty"><b>ยังไม่มีประเด็นให้จัดกลุ่ม</b>ต้องมีคำที่ถูกพูดถึงซ้ำอย่างน้อย 2 โพสต์ใน 7 วัน</div>';
     if (html !== issuesCache){ issuesCache = html; $('#issues').innerHTML = html; }
     drawRadar(S.issues);
-    $('#heroIssues').textContent = num(S.issues.length);
+    const hi = $('#heroIssues'); if (hi) hi.textContent = num(S.issues.length);
   }
 
   function toggleTerm(term){
