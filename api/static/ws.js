@@ -173,6 +173,9 @@
   function rowHtml(p) {
     var open = S.open.has(p.url);
     var th = p.text_th || p.text_raw || '';
+    var raw = p.text_raw || '';
+    // translated rows keep the original one hover away — never lose the source text
+    var wasTr = raw && th && th !== raw;
     var s = SENT[p.sentiment] || null;
     var cs = p.comment_sentiment || { pos: 0, neu: 0, neg: 0 };
     var dir = SENT[p.comment_direction] || SENT.none;
@@ -203,7 +206,9 @@
       '</div></td>' +
       '<td data-l="ข้อความ">' + (open
         ? '<div class="full">' + highlight(th) + '</div>' + thread
-        : '<div class="snip">' + highlight(th.slice(0, 230)) + (th.length > 230 ? '…' : '') + '</div>' +
+        : '<div class="snip">' + (wasTr ? '<span class="pilltag neu" title="' +
+            esc(raw.slice(0, 400)) + '">แปล</span> ' : '') +
+          highlight(th.slice(0, 230)) + (th.length > 230 ? '…' : '') + '</div>' +
           (ccount ? '<div class="chint">' + dir.e + ' ' + num(ccount) + ' คอมเมนต์</div>' : '')) + '</td>' +
       '<td data-l="ตัวชี้วัด"><div class="metrics"><span>❤ <b>' + num(p.likes) + '</b></span>' +
       '<span>💬 <b>' + num(p.replies) + '</b></span><span>🔁 <b>' + num(p.reposts) + '</b></span></div></td>' +

@@ -14,6 +14,7 @@ from . import db, ingest as ingest_mod, insight, sentiment as sentiment_mod, tra
 
 PROJECT = os.path.expanduser('~/Projects/harken')
 TICK = float(os.environ.get('HARKEN_INGEST_SECONDS', '3'))
+CATCHUP = float(os.environ.get('HARKEN_CATCHUP_SECONDS', '60'))
 LOCK = os.path.expanduser('~/Projects/harken/.worker.lock')
 
 
@@ -53,14 +54,24 @@ def cycle(analyze=True):
 
 async def loop():
     last_fp = None
+    last_catchup = time.time()
     while True:
         try:
             fp = ingest_mod.fingerprint()
             if fp != last_fp:
                 last_fp = fp
+                last_catchup = time.time()
                 res = await asyncio.to_thread(cycle)
                 if res:
                     print('[worker] %s -> %s' % (time.strftime('%H:%M:%S'), res), flush=True)
+            elif time.time() - last_catchup >= CATCHUP:
+                # translations left over from a big batch used to wait for the NEXT
+                # feed file; keep draining them on a timer instead
+                last_catchup = time.time()
+                if translate_mod.pending(limit=1):
+                    res = await asyncio.to_thread(translate_mod.translate_pending)
+                    print('[worker] %s catch-up translate -> %s' % (time.strftime('%H:%M:%S'), res),
+                          flush=True)
         except Exception as e:
             print('[worker] error %s: %s' % (type(e).__name__, e), flush=True)
         await asyncio.sleep(TICK)

@@ -224,11 +224,17 @@ def stats(run: str = '', include_noise: int = 0):
         translated = conn.execute(
             "SELECT COUNT(*) c FROM posts WHERE text_th <> '' AND text_th <> text_raw"
             + (' AND ' + ' AND '.join(rw) if rw else ''), rp).fetchone()['c']
-        # parentheses matter: without them the OR swallows the run filter and every
-        # zone reports the global count (and "readable" can exceed "total")
-        native_th = conn.execute(
-            "SELECT COUNT(*) c FROM posts WHERE (COALESCE(text_th,'') = '' OR text_th = text_raw)"
-            + (' AND ' + ' AND '.join(rw) if rw else ''), rp).fetchone()['c']
+        # "native Thai" must mean the text IS Thai. Counting every row without a
+        # translation called Japanese/Korean/English posts "Thai" (30 of 30, audit
+        # 2026-11-20) and hid the fact that the translator had stopped.
+        native_th = untranslated = 0
+        for (raw,) in conn.execute(
+                "SELECT text_raw FROM posts WHERE (COALESCE(text_th,'') = '' OR text_th = text_raw)"
+                + (' AND ' + ' AND '.join(rw) if rw else ''), rp):
+            if translate_mod.is_thai(raw):
+                native_th += 1
+            else:
+                untranslated += 1
         # comment counts follow the same scope as posts — a zone must never show
         # the whole listener's comment total
         cw, cp = [], []
@@ -272,7 +278,7 @@ def stats(run: str = '', include_noise: int = 0):
             noise_params).fetchone()['c']
 
     return {'revision': _revision(), 'total': total, 'translated': translated,
-            'native_th': native_th, 'news_total': news_total,
+            'native_th': native_th, 'untranslated': untranslated, 'news_total': news_total,
             'hidden_noise': hidden_noise, 'comments': comments,
             'comment_sentiment': comment_sentiment, 'posts_with_comments': posts_with_comments,
             'by_platform': by_platform, 'by_day': by_day, 'by_sentiment': by_sentiment,

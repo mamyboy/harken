@@ -122,9 +122,16 @@ RUN_STABLE_SECONDS = 60      # a file untouched this long is treated as finished
 
 
 def fingerprint():
-    """Cheap stat-only signature of the feed directory (no file reads)."""
+    """Cheap stat-only signature of the feed directory (no file reads).
+
+    Includes the .keep.json / .meta.json sidecars: an analyst's --keep decision
+    written after the feed must still trigger a re-ingest.
+    """
     parts = []
-    for f in sorted(glob.glob(os.path.join(PROJECT, '*.jsonl'))):
+    files = (glob.glob(os.path.join(PROJECT, '*.jsonl'))
+             + glob.glob(os.path.join(PROJECT, '*.jsonl.keep.json'))
+             + glob.glob(os.path.join(PROJECT, '*.jsonl.meta.json')))
+    for f in sorted(files):
         if f.endswith('-cand.jsonl'):
             continue
         try:
@@ -198,6 +205,53 @@ def _num(v):
         return 0
 
 
+def _sidecar(path, suffix):
+    try:
+        return json.load(open(path + suffix, encoding='utf-8'))
+    except Exception:
+        return None
+
+
+def _apply_judgement(conn, path, run_urls):
+    """Make the DB show what was decided about this run, not the raw search output.
+
+    Two sources, both optional, both written next to the feed file:
+      <feed>.keep.json  the analyst's --keep list; every other post in the file is off-topic
+      <feed>.meta.json  the run's since/until window; posts outside it are not "today"
+    A person's review (review_state confirmed/rejected) always wins over both.
+    Judged rows are marked noise_checked=1 so the LLM relevance pass never re-opens them.
+    """
+    keep = _sidecar(path, '.keep.json')
+    meta = _sidecar(path, '.meta.json') or {}
+    since, until = (meta.get('since') or '')[:10], (meta.get('until') or '')[:10]
+    kept = set(keep.get('keep') or []) if isinstance(keep, dict) else None
+    why = (keep.get('why') or {}) if isinstance(keep, dict) else {}
+    human = "COALESCE(review_state,'auto') = 'auto'"
+    for url, iso in run_urls:
+        day = (iso or '')[:10]
+        if day and ((since and day < since) or (until and day > until)):
+            conn.execute(
+                "UPDATE posts SET noise = 1, noise_checked = 1, noise_state = 'window', "
+                "noise_why = ? WHERE url = ? AND " + human,
+                ('นอกช่วงเวลาที่ค้น (%s ถึง %s)' % (since or '-', until or '-'), url))
+        elif kept is None:
+            continue
+        elif url in kept:
+            conn.execute(
+                "UPDATE posts SET noise = 0, noise_checked = 1, noise_state = 'ok', "
+                "noise_why = ? WHERE url = ? AND " + human,
+                ('ผู้วิเคราะห์คัดไว้: ' + str(why.get(url) or 'ตรงหัวข้อ'), url))
+        else:
+            conn.execute(
+                "UPDATE posts SET noise = 1, noise_checked = 1, noise_state = 'agent', "
+                "noise_why = ? WHERE url = ? AND " + human,
+                ('ผู้วิเคราะห์ตัดออก: ไม่ตรงความหมายของคำค้น', url))
+
+
+def fingerprint_sidecars(project=PROJECT):
+    return [(f, os.path.getmtime(f)) for f in sorted(glob.glob(os.path.join(project, '*.keep.json')))]
+
+
 def ingest(project=PROJECT, verbose=False):
     """Read every feed file and upsert posts. Returns {files, added, updated, comments}."""
     trans = _translations()
@@ -213,6 +267,7 @@ def ingest(project=PROJECT, verbose=False):
             platform = _platform(path)
             run_key = _run_key(path)
             run_posts = run_comments = run_reported = 0
+            run_urls = []
             for line in open(path, encoding='utf-8'):
                 line = line.strip()
                 if not line:
@@ -293,6 +348,7 @@ def ingest(project=PROJECT, verbose=False):
                     updated += 1
                 else:
                     added += 1
+                run_urls.append((url, p.get('posted_iso') or ''))
                 run_posts += 1
                 run_reported += replies or 0
 
@@ -319,6 +375,7 @@ def ingest(project=PROJECT, verbose=False):
                     comments += 1
                     run_comments += 1
 
+            _apply_judgement(conn, path, run_urls)
             _update_run_status(conn, run_key, platform, path, run_posts,
                                run_comments, run_reported, now)
         conn.execute('INSERT INTO ingest_log (files, added, updated, at) VALUES (?,?,?,?)',
