@@ -50,6 +50,120 @@
     return t ? ' data-tip="' + esc(t) + '"' : '';
   }
 
+  /* Renderers return strings; observe newly mounted SVGs before the next paint.
+   * A fresh SVG on every render also means daily/hourly toggles replay motion. */
+  function motionWrap(w, h, inner, label, kind) {
+    return wrap(w, h, inner, label).replace('<svg ', '<svg data-sl-motion="' + kind + '" ');
+  }
+  function motionAllowed(svg) {
+    return !(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches) &&
+      svg.getBoundingClientRect().width > 0;
+  }
+  function draw(path, host, delay, area, sweep, done) {
+    var svg = path.ownerSVGElement;
+    if (!svg || !motionAllowed(svg) || typeof path.getTotalLength !== 'function') return;
+    var len = path.getTotalLength();
+    if (!isFinite(len) || len <= 0) return;
+    var original = path.getAttribute('stroke-dasharray');
+    var opacity = area && area.getAttribute('opacity');
+    var natural = opacity === null || !area ? 1 : Number(opacity);
+    var start = global.performance.now() + delay;
+    var duration = sweep ? 600 : 800;
+    function restore() {
+      if (sweep) {
+        if (original === null) path.removeAttribute('stroke-dasharray');
+        else path.setAttribute('stroke-dasharray', original);
+      } else {
+        path.style.strokeDashoffset = 0;
+        path.style.removeProperty('stroke-dasharray');
+        path.style.removeProperty('stroke-dashoffset');
+      }
+      if (area) {
+        area.style.removeProperty('opacity');
+        if (opacity === null) area.removeAttribute('opacity');
+        else area.setAttribute('opacity', opacity);
+      }
+      if (done) done();
+    }
+    var visible = sweep && original ? parseFloat(original) : len;
+    if (sweep) path.setAttribute('stroke-dasharray', '0 ' + len);
+    else {
+      path.style.strokeDasharray = len;
+      path.style.strokeDashoffset = len;
+    }
+    if (area) area.style.opacity = 0;
+    function frame(now) {
+      if (!document.body.contains(host) || !host.contains(path) || !motionAllowed(svg)) {
+        restore();
+        return;
+      }
+      var t = Math.max(0, Math.min(1, (now - start) / duration));
+      var eased = 1 - Math.pow(1 - t, 3);
+      if (sweep) path.setAttribute('stroke-dasharray', (visible * eased) + ' ' + (len - visible * eased));
+      else path.style.strokeDashoffset = len * (1 - eased);
+      if (area) area.style.opacity = natural * eased;
+      if (t < 1) global.requestAnimationFrame(frame);
+      else restore();
+    }
+    global.requestAnimationFrame(frame);
+  }
+  var sweepId = 0;
+  /* These slices are filled wedges, not stroked arcs. Sweep a temporary ring
+   * mask so their original geometry, colours and white borders stay intact. */
+  function sweepArc(arc, host) {
+    if (typeof arc.getTotalLength !== 'function') return;
+    var svg = arc.ownerSVGElement, ns = 'http://www.w3.org/2000/svg';
+    var mask = document.createElementNS(ns, 'mask');
+    var circle = document.createElementNS(ns, 'circle');
+    var id = 'slSweep' + (++sweepId);
+    var len = 2 * Math.PI * 70.5;
+    mask.setAttribute('id', id);
+    mask.setAttribute('maskUnits', 'userSpaceOnUse');
+    mask.setAttribute('x', '0'); mask.setAttribute('y', '0');
+    mask.setAttribute('width', '220'); mask.setAttribute('height', '220');
+    circle.setAttribute('cx', '110'); circle.setAttribute('cy', '110');
+    circle.setAttribute('r', '70.5');
+    circle.setAttribute('fill', 'none'); circle.setAttribute('stroke', '#fff');
+    circle.setAttribute('stroke-width', '35');
+    circle.setAttribute('transform', 'rotate(' + arc.getAttribute('data-sl-start') + ' 110 110)');
+    var visible = len * Number(arc.getAttribute('data-sl-frac'));
+    circle.setAttribute('stroke-dasharray', visible + ' ' + (len - visible));
+    if (typeof circle.getTotalLength !== 'function') return;
+    mask.appendChild(circle); svg.appendChild(mask);
+    arc.setAttribute('mask', 'url(#' + id + ')');
+    draw(circle, host, 0, null, true, function () {
+      arc.removeAttribute('mask');
+      if (mask.parentNode) mask.parentNode.removeChild(mask);
+    });
+  }
+  function animateChart(svg) {
+    if (!motionAllowed(svg)) return;
+    var host = svg.parentNode;
+    if (svg.getAttribute('data-sl-motion') === 'line') {
+      var paths = svg.querySelectorAll('path[fill="none"]');
+      var area = svg.querySelector('path[fill="url(#slFill)"]');
+      for (var i = 0; i < paths.length; i++) {
+        draw(paths[i], host, i * 90, i === paths.length - 1 ? area : null, false);
+      }
+    } else {
+      var arcs = svg.querySelectorAll('[data-sl-frac]');
+      for (var j = 0; j < arcs.length; j++) sweepArc(arcs[j], host);
+    }
+  }
+  if (global.MutationObserver && global.requestAnimationFrame) {
+    new global.MutationObserver(function (records) {
+      records.forEach(function (record) {
+        for (var i = 0; i < record.addedNodes.length; i++) {
+          var node = record.addedNodes[i];
+          if (node.nodeType !== 1) continue;
+          if (node.matches('svg[data-sl-motion]')) animateChart(node);
+          var charts = node.querySelectorAll('svg[data-sl-motion]');
+          for (var j = 0; j < charts.length; j++) animateChart(charts[j]);
+        }
+      });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+
   /* ── 1. trend line with crosshair ───────────────────────────
    * d = {labels, cur, prev, iso}
    * opts.dayKey  -> data-act="day" payload attribute name (default 'day') */
@@ -111,7 +225,7 @@
         '<path d="' + line(cur) + '" fill="none" stroke="' + C.violet + '" stroke-width="2.6" ' +
         'stroke-linecap="round" stroke-linejoin="round"/>' +
         peak + cols + pts;
-      return wrap(W, H, inner, 'แนวโน้มการพูดถึง ' + n + ' ช่วง');
+      return motionWrap(W, H, inner, 'แนวโน้มการพูดถึง ' + n + ' ช่วง', 'line');
     }
   });
 
@@ -131,11 +245,11 @@
       if (items.length === 1) {
         var only = items[0];
         var col0 = only.color || PLATCOL[only.platform] || C.violet;
-        return '<div class="sl-donut"><div class="sl-donut-svg">' + wrap(S, S,
-          '<circle cx="' + cx + '" cy="' + cy + '" r="' + ((R + r) / 2) + '" fill="none" stroke="' +
+        return '<div class="sl-donut"><div class="sl-donut-svg">' + motionWrap(S, S,
+          '<circle data-sl-start="-90" data-sl-frac="1" cx="' + cx + '" cy="' + cy + '" r="' + ((R + r) / 2) + '" fill="none" stroke="' +
           col0 + '" stroke-width="' + (R - r) + '" data-act="platform" data-platform="' +
           esc(only.platform || '') + '"' + tip([only.label || only.platform,
-            num(only.n) + ' โพสต์', '100%']) + '/>' + centre, 'สัดส่วนแพลตฟอร์ม') +
+            num(only.n) + ' โพสต์', '100%']) + '/>' + centre, 'สัดส่วนแพลตฟอร์ม', 'donut') +
           '</div><div class="sl-donut-legend"><button type="button" class="rankrow" data-act="platform" ' +
           'data-platform="' + esc(only.platform || '') + '"><span class="no">' +
           '<i class="sl-swatch" style="background:' + col0 + '"></i></span>' +
@@ -153,6 +267,7 @@
         out += '<path d="M' + p(a0, R) + ' A' + R + ' ' + R + ' 0 ' + big + ' 1 ' + p(a1, R) +
           ' L' + p(a1, r) + ' A' + r + ' ' + r + ' 0 ' + big + ' 0 ' + p(a0, r) + ' Z" ' +
           'fill="' + col + '" stroke="#fff" stroke-width="1.6" class="sl-arc" ' +
+          'data-sl-start="' + (a0 * 180 / Math.PI) + '" data-sl-frac="' + frac + '" ' +
           'data-act="platform" data-platform="' + esc(it.platform || '') + '" data-hover-group="donut" ' +
           tip([it.label || it.platform, num(it.n) + ' โพสต์', Math.round(frac * 100) + '%']) + '/>';
         legend += '<button type="button" class="rankrow" data-act="platform" data-platform="' +
@@ -162,7 +277,7 @@
           Math.round(frac * 100) + '%</span></button>';
         a0 = a1;
       });
-      var svg = wrap(S, S, out + centre, 'สัดส่วนแพลตฟอร์ม');
+      var svg = motionWrap(S, S, out + centre, 'สัดส่วนแพลตฟอร์ม', 'donut');
       return '<div class="sl-donut"><div class="sl-donut-svg">' + svg +
         '</div><div class="sl-donut-legend">' + legend + '</div></div>';
     }

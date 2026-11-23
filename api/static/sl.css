@@ -619,8 +619,50 @@ html[data-theme="dark"] .appbar.is-stuck{box-shadow:0 14px 34px rgba(0,0,0,.60)}
 html[data-theme="dark"] .ab-live{background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.14)}
 @media (hover:hover){ .appbar{transition:box-shadow .18s ease, border-color .18s ease, background .18s ease} }
 
+/* ── scroll blooms: body pseudos are free; no body stacking context ── */
+body::before,body::after{
+  content:""; position:fixed; z-index:-1; pointer-events:none;
+  border-radius:50%; background-repeat:no-repeat; will-change:transform;
+  transition:none;
+}
+body::before{
+  width:560px; height:560px; top:-140px; right:-90px;
+  background-image:radial-gradient(closest-side, rgba(109,40,217,.20), rgba(109,40,217,0) 72%);
+  transform:translate3d(0, calc(var(--sy, 0px) * -0.045), 0);
+}
+body::after{
+  width:440px; height:440px; bottom:-160px; left:-120px;
+  background-image:radial-gradient(closest-side, rgba(0,184,230,.18), rgba(0,184,230,0) 72%);
+  transform:translate3d(0, calc(var(--sy, 0px) * 0.075), 0);
+}
+html[data-theme="dark"] body::before{
+  background-image:radial-gradient(closest-side, rgba(109,40,217,.12), rgba(109,40,217,0) 72%);
+}
+html[data-theme="dark"] body::after{
+  background-image:radial-gradient(closest-side, rgba(0,184,230,.10), rgba(0,184,230,0) 72%);
+}
+@media (max-width:860px){
+  body::before{transform:translate3d(0, calc(var(--sy, 0px) * -0.02), 0)}
+  body::after{display:none}
+}
+
+/* ── cross-document transitions; chrome keeps its own identity ─────── */
+@view-transition { navigation: auto; }
+@keyframes vtOut { to { opacity:0 } }
+@keyframes vtIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+::view-transition-old(root){ animation:vtOut .16s ease both }
+::view-transition-new(root){ animation:vtIn .26s cubic-bezier(.16,1,.3,1) both }
+.topnav{view-transition-name:rail}
+.appbar{view-transition-name:appbar}
+::view-transition-group(rail),::view-transition-group(appbar){animation-duration:.22s}
+html:not(.vt) body{animation:vtIn .26s cubic-bezier(.16,1,.3,1) both}
+
 @media (prefers-reduced-motion: reduce){
   /* keep state visible, remove travel and looping */
+  body::before,body::after{transform:none!important}
+  ::view-transition-group(*),::view-transition-image-pair(*),
+  ::view-transition-old(*),::view-transition-new(*){animation-duration:.01s!important}
+  html:not(.vt) body{animation:none!important}
   .skel{animation:none; background:#EEF3FB}
   .card,.kpi{transition:none}
   .card.lift:hover,.kpi:hover{transform:none}
