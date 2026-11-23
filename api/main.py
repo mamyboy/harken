@@ -14,7 +14,8 @@ import time
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 
-from . import db, ingest as ingest_mod, insight, translate as translate_mod, sentiment as sentiment_mod
+from . import (db, ingest as ingest_mod, insight, translate as translate_mod,
+               sentiment as sentiment_mod, presets as presets_mod)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, 'static')
@@ -1278,6 +1279,37 @@ def search_zone(run: str, days: int = Query(7, ge=1, le=90),
         'issues_window_days': iss.get('window_days', days),
         'rankings': rk,
     }
+
+
+@app.get('/presets')
+def presets_page():
+    """Six recurring searches, one keyword field — the runner lives behind it."""
+    return FileResponse(os.path.join(STATIC, 'presets.html'),
+                        headers={'Cache-Control': 'no-store, must-revalidate'})
+
+
+@app.get('/api/presets')
+def presets_list():
+    return {'presets': presets_mod.PRESETS, 'platforms': list(presets_mod.PLATFORMS),
+            'windows': presets_mod.WINDOWS, 'busy': sorted(presets_mod.running())}
+
+
+@app.post('/api/presets/run')
+def presets_run(preset: str, keyword: str, platforms: str = '', window: str = '',
+                extra: str = ''):
+    plats = [p.strip() for p in platforms.split(',') if p.strip()] or None
+    try:
+        started = presets_mod.start(preset, keyword, plats, window or None, extra)
+    except RuntimeError as e:      # that platform already has a search running
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {'ok': True, 'started': started}
+
+
+@app.get('/api/presets/jobs')
+def presets_jobs():
+    return {'jobs': presets_mod.jobs_view()}
 
 
 @app.get('/')
