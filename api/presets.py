@@ -199,11 +199,37 @@ def running(jobs=None):
 
 
 def _alive(pid):
+    """A live process, not a corpse.
+
+    A finished child that nobody waited on stays in the table as a zombie, and
+    os.kill(pid, 0) happily succeeds on it -- which left the platform marked
+    busy forever and refused every later search. Reap it and say no.
+    """
     try:
-        os.kill(int(pid), 0)
-        return True
+        pid = int(pid)
     except Exception:
         return False
+    try:
+        os.kill(pid, 0)
+    except Exception:
+        return False
+    try:
+        with open('/proc/%d/stat' % pid, 'rb') as fh:              # linux
+            return fh.read().split(b') ')[-1][:1] != b'Z'
+    except OSError:
+        pass
+    try:
+        out = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)],
+                             capture_output=True, text=True, timeout=5).stdout.strip()
+        if out.startswith('Z'):
+            try:
+                os.waitpid(pid, os.WNOHANG)                        # reap the corpse
+            except Exception:
+                pass
+            return False
+        return bool(out)
+    except Exception:
+        return True
 
 
 def start(pid, keyword, platforms=None, window=None, extra=''):
