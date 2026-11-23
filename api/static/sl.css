@@ -78,6 +78,8 @@ a:hover{text-decoration:underline}
   background:linear-gradient(140deg,var(--brand),#00B8E6); box-shadow:0 10px 22px rgba(29,111,242,.32)}
 .brand h1{margin:0; font-size:17px; font-weight:700; letter-spacing:-.01em; white-space:nowrap}
 .brand .sub{font-size:var(--fs-label); color:var(--muted); margin-top:-1px; text-wrap:pretty; max-width:200px}
+/* the tagline breaks between the Latin line and the Thai line, never mid-phrase */
+.brand .sub>span{display:block; white-space:nowrap}
 .navspace{flex:1}
 .navlinks{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
 .navlink{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line-2);
