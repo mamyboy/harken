@@ -21,9 +21,9 @@
     pos: 'var(--pos)', neu: 'var(--neu)', neg: 'var(--neg)'
   };
   var PLATCOL = {
-    facebook: '#1877F2', fbfeed: '#0A57C4', threads: '#111111', tiktok: '#00F2EA', x: '#0F1419',
-    x: '#0F1419', twitter: '#0F1419', instagram: '#E1306C', ig: '#E1306C',
-    youtube: '#FF0000', pantip: '#7B2D8E', lemon8: '#FFC300', news: '#6B7A99', other: '#8C99B4'
+    facebook: '#1877F2', fbfeed: '#0A57C4', threads: 'var(--ink)', tiktok: '#00F2EA', x: 'var(--ink)',
+    x: 'var(--ink)', twitter: 'var(--ink)', instagram: '#E1306C', ig: '#E1306C',
+    youtube: '#FF0000', pantip: '#7B2D8E', lemon8: '#FFC300', news: 'var(--muted)', other: 'var(--muted-2)'
   };
 
   function esc(s) {
@@ -78,12 +78,12 @@
         g += '<line x1="' + X0 + '" y1="' + gy.toFixed(1) + '" x2="' + XR + '" y2="' + gy.toFixed(1) +
           '" stroke="' + C.line + '" stroke-width="1"/>' +
           '<text x="' + (X0 - 9) + '" y="' + (gy + 4).toFixed(1) + '" text-anchor="end" font-size="12" fill="' +
-          '#33415C' + '">' + num(val) + '</text>';
+          'var(--ink-2)' + '">' + num(val) + '</text>';
       }
       var every = n > 12 ? Math.ceil(n / 8) : 1;
       var xl = d.labels.map(function (l, k) {
         return k % every ? '' : '<text x="' + xx(k).toFixed(1) + '" y="' + (Y1 + 19) + '" text-anchor="middle" ' +
-          'font-size="12" fill="#33415C">' + esc(l) + '</text>';
+          'font-size="12" fill="var(--ink-2)">' + esc(l) + '</text>';
       }).join('');
       var cols = '';
       var pts = cur.map(function (v, k) {
@@ -126,7 +126,7 @@
       var centre = '<text x="' + cx + '" y="' + (cy - 2) + '" text-anchor="middle" font-size="22" ' +
         'font-weight="700" fill="' + C.ink + '">' + num(total) + '</text>' +
         '<text x="' + cx + '" y="' + (cy + 16) + '" text-anchor="middle" font-size="12" fill="' +
-        '#33415C' + '">โพสต์</text>';
+        'var(--ink-2)' + '">โพสต์</text>';
       /* one platform = one full ring; a single 360° arc collapses to nothing */
       if (items.length === 1) {
         var only = items[0];
@@ -188,7 +188,7 @@
         out += '<line x1="' + X0 + '" y1="' + y.toFixed(1) + '" x2="' + XR + '" y2="' + y.toFixed(1) +
           '" stroke="' + C.line + '"/>' +
           '<text x="' + (X0 - 7) + '" y="' + (y + 3.5).toFixed(1) + '" text-anchor="end" ' +
-          'font-size="12" fill="#33415C">' + num(Math.round(max * (1 - gi / stepN))) + '</text>';
+          'font-size="12" fill="var(--ink-2)">' + num(Math.round(max * (1 - gi / stepN))) + '</text>';
       }
       rows.forEach(function (r, i) {
         var x = X0 + i * (bw + gap), y = Y1, h, tot = r.pos + r.neu + r.neg;
@@ -203,7 +203,7 @@
         });
         if (i % (rows.length > 16 ? 3 : 1) === 0) {
           out += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (Y1 + 15) + '" text-anchor="middle" ' +
-            'font-size="12" fill="#33415C">' + esc(r.label) + '</text>';
+            'font-size="12" fill="var(--ink-2)">' + esc(r.label) + '</text>';
         }
       });
       return wrap(W, H, out, 'อารมณ์รายวัน');
@@ -304,7 +304,7 @@
           tip([hours[i] + ':00', num(v) + ' โพสต์']) + '/>';
         if (i % 3 === 0) {
           out += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (Y1 + 14) + '" text-anchor="middle" ' +
-            'font-size="12" fill="#33415C">' + esc(hours[i]) + '</text>';
+            'font-size="12" fill="var(--ink-2)">' + esc(hours[i]) + '</text>';
         }
       });
       return wrap(W, H, out, 'ชั่วโมงที่คึกคัก');

@@ -192,6 +192,12 @@ A cool eight-step neutral ramp carries the structure; two saturated roles do the
 - Hairlines are **#E4EBF7** for panel borders and **#D6E2F3** for field borders and idle controls; both are cool-shifted so they stay invisible against the glass.
 - Delta roles: **Positive** #12692F on #E9F8EF (6.2:1), **Caution** #8A5A00 on #FFF4E2 (5.44:1), **Negative** #C22A2E on #FFECEC (5.04:1). Text uses these darker siblings; the bright originals (#16A34A / #D98A18 / #E5484D) survive only as bar fills. These three are status only, never data series.
 
+### Dark ground
+
+The same product at night, not an inverted grey theme. `html[data-theme="dark"]` overrides the tokens only, so every component follows without its own dark rule. Measured on the dark card (`rgba(24,34,60,.72)` over the navy field): ink **13.2:1**, muted **7.7:1**, positive **7.8:1**, caution **6.9:1**, negative **6.7:1**. The field stays navy (#0B1220 → #15264A), violet stays the action colour, cyan stays comparison, and the lead KPI keeps its saturated gradient with a `rgba(0,0,0,.45)` shadow instead of the violet glow.
+
+**The One-Ground Rule.** A surface is either glass-on-light or glass-on-navy. Never mix: a light card left inside the dark field reads as an unloaded hole, and a navy panel on the light field reads as a broken image.
+
 ## Typography
 
 **Display Font:** IBM Plex Sans Thai (fallback Noto Sans Thai, system stack)
@@ -209,7 +215,7 @@ A cool eight-step neutral ramp carries the structure; two saturated roles do the
 - **Prose** (400, 13.5px/1.62): snippets, list bodies.
 - **Label** (600, 12.5px): table heads, chips, pagination.
 - **Micro** (600, 11.5px): KPI keys, chart titles, platform pills.
-- **Axis** (600, 12px, tabular-nums, ink-slate): chart ticks and date labels. Charts render at the container width so one SVG unit equals one CSS pixel; a fixed 900-unit viewBox scales 12px text down to ~5px on a phone.
+- **Axis** (600, 12px, tabular-nums, `var(--ink-2)` — ink-slate on light, #C6D0E4 on dark): chart ticks and date labels. Charts render at the container width so one SVG unit equals one CSS pixel; a fixed 900-unit viewBox scales 12px text down to ~5px on a phone.
 
 **The Measured-Contrast Rule.** A colour pair is not finished when it looks right on the design file: measure it against the darkest part of the lit ground, not against white. Text ≥4.5:1, large text ≥3:1, and any non-text graphic that carries meaning (axis, icon stroke) ≥3:1.
 
@@ -248,15 +254,18 @@ Gently curved, one ladder: **18px** is the panel radius and the default for anyt
 - `rgba(255,255,255,.86)` + blur(10px), 18px radius, #E4EBF7 hairline, `--shadow`.
 - Head: 15px 18px 0, title 14.5px/600, hint right-aligned at 12px Muted Faint. Body: 14px 18px 18px.
 - KPI tiles add the 3px violet→cyan crown (`::before`, opacity .85) and lift 2px on hover; selected rows use a violet wash and a strengthened label, never a coloured side bar.
-- **The lead KPI** (first card of the row, `.kpi.lead`) is the one solid-violet surface among the metric tiles: 150deg #5B21B6 → #6D28D9 → #1D6FF2, white 30px numerals, white@82% key, crown suppressed. One per view, always the metric the page is about.
+- **The lead KPI** (first card of the row, `.kpi.lead`) is the one solid-violet surface among the metric tiles: 150deg #5B21B6 → #6D28D9 → #1559C6, white 30px numerals, white@82% key, crown suppressed. One per view, always the metric the page is about.
 
 ### Inputs / fields
 - White field, #D6E2F3 border, 12px radius, 9px vertical padding; the select carries an inline 11.5px muted label.
 - **Focus:** border goes violet plus `0 0 0 3px rgba(109,40,217,.12)` — a ring, not a glow.
 
 ### Navigation
-- **Rail (≥861px):** navy gradient wall (#0F1B33 → #16244A → #111B38), 1px white@8% right edge, brand at top (38px mark, 16px white wordmark, white@60% subtitle), nav links stacked full-width at rgba(255,255,255,.84) with an 8% hover wash, active = solid violet pill with a violet lift. The live clock pill is ordered to the bottom of the rail with `margin-top:auto`.
+- **Rail (≥861px):** navy gradient wall (#0F1B33 → #16244A → #111B38), 1px white@8% right edge, brand at top (38px mark, 16px white wordmark, white@60% subtitle), nav links stacked full-width at rgba(255,255,255,.84) with an 8% hover wash, active = solid violet pill with a violet lift. The live clock pill is ordered to the bottom of the rail with `margin-top:auto`, and directly above it sits the theme control: a full-width row with a 16px sun/moon icon and the label "สลับโหมดสว่าง/มืด" (`#themeBtn`, `aria-pressed` carries the state). Every nav item leads with a 16px stroke icon (`svg.ni`, currentColor, 1.7 stroke), so the rail reads as an instrument panel rather than a list of words.
 - **Strip (≤860px):** the same links in one horizontally scrolling row, `flex-wrap:nowrap`, scrollbar hidden — four tabs must never wrap to a second line.
+
+### Page hero (`.pagehero`)
+- The same violet→console-blue family as the zone hero, but short: 22px 24px padding, 26px/700 white title, a 14px white@82% line capped at 68ch, a white bloom bottom-right, 22px corners. It opens a page whose whole job is one task (/presets) — no kicker, no numbers, and no second gradient in the view.
 
 ### [Signature] Zone hero
 - 22px radius, `linear-gradient(140deg,#241355 0%,#4C1D95 46%,#6D28D9 78%,#1D6FF2 130%)`, 46px top padding so a floating back-link never collides with the title, a radial white bloom anchored bottom-centre, kicker at 11px uppercase 0.1em, title 26px, platform chips at white@16%, and a 3-cell stat group on the right (10.5px keys, 22px tabular values).
@@ -275,6 +284,8 @@ Gently curved, one ladder: **18px** is the panel radius and the default for anyt
 - **Do** draw charts at the measured container width, never a fixed wide viewBox — that keeps axis text at a real 12px on a phone.
 - **Do** strip colour out of a nested container: a filter bar inside a card is transparent and borderless (.filters-inline), never a second panel.
 - **Do** keep exactly one solid-violet card per view — the lead KPI. Two would make the field shout and neither would read as the headline.
+- **Do** take the ground from `data-theme` when adding a surface; never hardcode a light card into the dark field.
+- **Do** lead every rail item with a 16px stroke icon at 1.7 weight; the label never wraps and the active pill keeps its violet.
 
 ### Don't:
 - **Don't** use coral for body or small text on white; the smallest coral text role is a chip on coral wash.
@@ -282,4 +293,6 @@ Gently curved, one ladder: **18px** is the panel radius and the default for anyt
 - **Don't** display 0 where data was never fetched.
 - **Don't** fill a whole analysis card with a violet→cyan gradient; outside the lead KPI and the zone hero, the gradient is limited to the 3px KPI crown, progress fills, and ranking bars.
 - **Don't** treat Console Blue as an action colour — buttons, links, and active states are violet.
+- **Don't** paint the lead KPI's blue terminus with console blue: white text sits on it, so it uses the deeper #1559C6 and clears 4.5:1 at the worst gradient stop.
+- **Don't** ship a chart colour that is a literal hex on both themes — axis and platform greys resolve through `var(--ink-2)` / `var(--muted)` so they flip with the ground.
 - **Don't** stack a shadow and a blur on the same element beyond the panel pattern; interior cells stay flat.

@@ -382,7 +382,10 @@ mark{background:#FFF2A8; color:inherit; border-radius:3px; padding:0 1px}
   .topnav .navlink:hover{background:rgba(255,255,255,.08); border-color:transparent; color:#fff}
   .topnav .navlink[aria-current="page"]{background:var(--violet); border-color:var(--violet); color:#fff;
     box-shadow:0 8px 20px rgba(109,40,217,.38)}
-  .topnav .navlinks>.pill{order:2; margin-top:auto; align-self:stretch; justify-content:center;
+  .topnav .themetoggle{order:1; margin-top:auto; align-self:stretch; width:auto; height:38px;
+    justify-content:flex-start; gap:9px; padding:0 13px; font-size:13px; font-weight:600}
+  .topnav .themetoggle::after{content:"สลับโหมดสว่าง/มืด"; white-space:nowrap}
+  .topnav .navlinks>.pill{order:2; margin-top:6px; align-self:stretch; justify-content:center;
     background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.16); color:rgba(255,255,255,.82)}
   .topnav .navlinks>.pill .dot{background:#4ADE80}
   .shell{padding-left:18px; padding-right:22px}
@@ -404,15 +407,108 @@ mark{background:#FFF2A8; color:inherit; border-radius:3px; padding:0 1px}
 /* ── the lead KPI carries the accent ───────────────────────────────────
    One metric per screen is the headline; making the first card solid violet
    gives the row a focal point without filling the field with gradient. */
-.kpi.lead{background:linear-gradient(150deg,#5B21B6 0%,#6D28D9 58%,#1D6FF2 118%);
+.kpi.lead{background:linear-gradient(150deg,#5B21B6 0%,#6D28D9 58%,#1559C6 118%);
   border-color:rgba(109,40,217,.5); box-shadow:0 14px 30px rgba(76,29,149,.28)}
 .kpi.lead::before{display:none}
-.kpi.lead .k{color:rgba(255,255,255,.82)}
+.kpi.lead .k{color:rgba(255,255,255,.88)}
 .kpi.lead .v{color:#fff; font-size:34px; letter-spacing:-.035em}
-.kpi.lead .f{color:rgba(255,255,255,.74)}
+.kpi.lead .f{color:rgba(255,255,255,.88)}
 .kpi.lead:hover{box-shadow:0 20px 40px rgba(76,29,149,.34)}
 .kpis .kpi .v{font-size:30px}
 @media (max-width:640px){ .kpis .kpi .v{font-size:24px} .kpi.lead .v{font-size:26px} }
+
+/* ── rail icon contract + theme control ────────────────────────────── */
+.navlink{gap:10px}
+.navlink svg.ni{width:16px; height:16px; flex:none; opacity:.92}
+.navlink:hover svg.ni,.navlink[aria-current="page"] svg.ni{opacity:1}
+.nl{white-space:nowrap}
+.themetoggle{display:inline-flex; align-items:center; justify-content:center; flex:none;
+  width:38px; height:38px; padding:0; border:1px solid transparent; border-radius:11px;
+  background:transparent; color:rgba(255,255,255,.84); cursor:pointer}
+.themetoggle:hover{background:rgba(255,255,255,.08)}
+.themetoggle:focus-visible{outline:2px solid var(--violet); outline-offset:2px}
+.themetoggle svg{width:18px; height:18px; flex:none}
+.themetoggle .ic-moon{display:none}
+html[data-theme="dark"] .themetoggle .ic-sun{display:none}
+html[data-theme="dark"] .themetoggle .ic-moon{display:block}
+@media (max-width:860px){
+  .themetoggle{width:36px; height:36px; color:var(--ink-2)}
+  .themetoggle:hover{background:var(--hover-wash)}
+}
+
+/* ── presets identity: spans every content-grid track ──────────────── */
+.pagehero{position:relative; overflow:hidden; grid-column:1 / -1; width:100%; min-width:0;
+  border-radius:22px; padding:22px 24px; color:#fff;
+  background:linear-gradient(140deg,#241355 0%,#4C1D95 46%,#6D28D9 78%,#1D6FF2 130%)}
+.pagehero::after{content:""; position:absolute; right:-60px; bottom:-110px; width:420px; height:230px;
+  background:radial-gradient(closest-side,rgba(255,255,255,.16),rgba(255,255,255,0) 72%);
+  pointer-events:none}
+.pagehero h1,.pagehero p{position:relative; z-index:1}
+.pagehero h1{margin:0; font-size:26px; font-weight:700; line-height:1.25}
+.pagehero p{margin:8px 0 0; font-size:14px; color:rgba(255,255,255,.82); max-width:68ch}
+@media (max-width:640px){
+  .pagehero{padding:18px}
+  .pagehero h1{font-size:21px}
+}
+
+/* ── night console: tokens first, only hard-coded surfaces below ────── */
+html[data-theme="dark"]{
+  --ink:#E8EDF7; --ink-2:#C6D0E4; --muted:#AFBBD2; --muted-2:#98A7C1;
+  --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
+  --card:rgba(24,34,60,.72); --track:rgba(255,255,255,.10); --hover-wash:rgba(255,255,255,.06);
+  --violet-wash:rgba(109,40,217,.22); --cyan-wash:rgba(0,184,230,.16);
+  --pos-wash:rgba(134,239,172,.14); --neu-wash:rgba(251,191,36,.14); --neg-wash:rgba(248,113,113,.14);
+  --chip-bg:rgba(4,107,133,.20); --chip-line:rgba(191,234,248,.26);
+  --pos:#86EFAC; --neu:#FBBF24; --neg:#FCA5A5;
+  --brand-ink:#93C5FD; --violet-d:#C4B5FD; --cyan-ink:#67E8F9;
+  --cyan-line:rgba(191,234,248,.26); --coral-ink:#FCA5A5;
+}
+html[data-theme="dark"] body{
+  background:
+    radial-gradient(1100px 560px at 12% -8%,#15264A 0%,rgba(21,38,74,0) 62%),
+    radial-gradient(900px 520px at 92% 2%,#14203C 0%,rgba(20,32,60,0) 58%),
+    linear-gradient(180deg,#0B1428 0%,#101B32 42%,#0B1428 100%);
+  background-attachment:fixed;
+}
+html[data-theme="dark"] .chip{color:#E6F4FF}
+html[data-theme="dark"] .chip.tag-only[aria-pressed="true"] .n{color:rgba(255,255,255,.85)}
+html[data-theme="dark"] thead th{background:#182140}
+html[data-theme="dark"] tbody tr.row:hover,
+html[data-theme="dark"] tbody tr.row[aria-expanded="true"]{background:rgba(255,255,255,.05)}
+html[data-theme="dark"] .search,html[data-theme="dark"] .picker,
+html[data-theme="dark"] .pager select,html[data-theme="dark"] .btn{
+  background:rgba(255,255,255,.06); border-color:var(--line-2);
+}
+html[data-theme="dark"] .btn:hover{background:rgba(255,255,255,.10)}
+html[data-theme="dark"] .btn[aria-pressed="true"]{background:var(--violet); border-color:var(--violet)}
+html[data-theme="dark"] .mark,html[data-theme="dark"] mark{background:#3F3A1F; color:#FFE9A8}
+html[data-theme="dark"] .brand .mark{background:linear-gradient(140deg,var(--brand),#00B8E6); color:#fff}
+html[data-theme="dark"] .sl-tip{border:1px solid var(--line-2)}
+html[data-theme="dark"] .chartcell{background:transparent}
+html[data-theme="dark"] .skel{background-image:linear-gradient(90deg,#18223C,#253454,#18223C)}
+html[data-theme="dark"] .kpi.lead,html[data-theme="dark"] .kpi.lead:hover{
+  box-shadow:0 10px 26px rgba(0,0,0,.45);
+}
+/* Existing literal light fills must not survive on interactive night surfaces. */
+html[data-theme="dark"] .rankrow:hover,html[data-theme="dark"] .bar:hover,
+html[data-theme="dark"] .issue:hover{background:var(--hover-wash)}
+html[data-theme="dark"] .bar[aria-pressed="true"],html[data-theme="dark"] .issue[aria-pressed="true"],
+html[data-theme="dark"] .term:hover{background:var(--violet-wash)}
+html[data-theme="dark"] .pill,html[data-theme="dark"] .pilltag.none,
+html[data-theme="dark"] .emo.none,html[data-theme="dark"] .issue .chg.flat{background:var(--hover-wash)}
+html[data-theme="dark"] .pilltag.topic{color:var(--violet-d)}
+html[data-theme="dark"] .banner{background:var(--neg-wash); border-color:var(--line-2)}
+html[data-theme="dark"] .search input::placeholder{color:var(--muted)}
+html[data-theme="dark"] select{color-scheme:dark}
+@media (max-width:860px){
+  html[data-theme="dark"] .topnav .navlink:not([aria-current="page"]){
+    background:var(--hover-wash); border-color:var(--line-2); color:var(--ink-2);
+  }
+  html[data-theme="dark"] .topnav .navlink:not([aria-current="page"]):hover{color:var(--violet-d)}
+}
+@media (max-width:720px){
+  html[data-theme="dark"] tbody tr{background:var(--card)}
+}
 
 @media (prefers-reduced-motion: reduce){
   /* keep state visible, remove travel and looping */
