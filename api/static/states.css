@@ -1,0 +1,76 @@
+/* Region states share the console's tokens, including dark-mode overrides. */
+.hstate {
+  --hstate-accent: var(--muted, #5F6B85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  grid-column: 1 / -1;
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 120px;
+  padding: 24px 18px;
+  border: 1px solid var(--line, #E4EBF7);
+  border-radius: 12px;
+  background: var(--card, #fff);
+  color: var(--ink, #0F1B33);
+  font-family: inherit;
+  font-size: max(12px, var(--fs-body, 14.5px));
+  line-height: 1.65;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.hstate::before {
+  content: '';
+  display: block;
+  width: 22px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--hstate-accent);
+}
+.hstate-message {
+  display: block;
+  font-size: max(12px, var(--fs-body, 14.5px));
+  font-weight: 600;
+  color: var(--ink, #0F1B33);
+}
+.hstate-detail {
+  display: block;
+  max-width: 56ch;
+  color: var(--muted, #5F6B85);
+  font-size: max(12px, var(--fs-ui, 13px));
+}
+.hstate-loading {
+  --hstate-accent: var(--violet-d, #5B21B6);
+  background: var(--violet-wash, #F2EBFF);
+}
+.hstate-loading::before {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--line-2, #D6E2F3);
+  border-top-color: var(--hstate-accent);
+  border-radius: 50%;
+  background: transparent;
+  animation: hstate-spin 1s linear infinite;
+}
+.hstate-empty { background: var(--track, #EEF3FC); }
+.hstate-no-source {
+  --hstate-accent: var(--neu, #8A5A00);
+  background: var(--neu-wash, #FFF4E2);
+}
+.hstate-error {
+  --hstate-accent: var(--neg, #C22A2E);
+  background: var(--neg-wash, #FFECEC);
+}
+.hstate-row > td { padding: 12px 16px; }
+@keyframes hstate-spin { to { transform: rotate(360deg); } }
+@media (max-width: 720px) {
+  .hstate-row > td { display: block; }
+  .hstate-row > td::before { display: none; }
+  .hstate { padding: 20px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hstate-loading::before { animation: none; }
+}

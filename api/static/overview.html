@@ -7,6 +7,9 @@
 <title>ภาพรวม · SatunEcho Social Listening</title>
 <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/sl.css">
+<link rel="stylesheet" href="/static/chg.css">
+<link rel="stylesheet" href="/static/peakpanel.css">
+<link rel="stylesheet" href="/static/states.css">
 <script>try{var t=localStorage.getItem('harken-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="preload" href="/static/fonts/plexth-thai-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/static/fonts/plexth-thai-600.woff2" as="font" type="font/woff2" crossorigin>
@@ -58,6 +61,7 @@
   </div>
 
   <!-- ── 1. ตัวเลขหลัก ───────────────────────────────────── -->
+  <div id="chgBar" class="chgbar"></div>
   <div class="kpis" id="kpis">
     <div class="kpi lead"><div class="k"><span>โพสต์ทั้งหมด</span></div><span class="v num" id="kPosts">—</span><div class="f" id="kPostsF">ทุกโซนรวมกัน</div><div class="spark" id="sPosts"></div></div>
     <div class="kpi"><div class="k"><span>คอมเมนต์ที่เก็บได้</span></div><span class="v num" id="kComments">—</span><div class="f" id="kCommentsF">จากทุกโพสต์</div></div>
@@ -217,6 +221,9 @@
 
 <script src="/static/charts.js"></script>
 <script src="/static/sl-charts.js"></script>
+<script src="/static/states.js"></script>
+<script src="/static/chg.js"></script>
+<script src="/static/peakpanel.js"></script>
 <script src="/static/ov.js"></script>
 </body>
 </html>

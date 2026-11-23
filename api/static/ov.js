@@ -150,6 +150,7 @@
   }
 
   function paintZones() {
+    st('#zoneRows', 'ready');
     var all = (V.runs || []).filter(function (r) { return (r.kind || 'social') === 'social'; });
     $('#zoneCount').textContent = num(all.length) + ' โซน';
     var q = V.zq.trim().toLowerCase();
@@ -174,6 +175,7 @@
 
   /* ── issues & terms ───────────────────────────────────── */
   function paintIssues(d) {
+    st('#issues', 'ready');
     var rows = d.issues || [];
     var top = Math.max(1, Math.max.apply(null, rows.map(function (r) { return r.n_posts || 0; }).concat([1])));
     $('#issues').innerHTML = rows.length ? rows.map(function (t, i) {
@@ -200,6 +202,7 @@
 
   /* ── top posts ────────────────────────────────────────── */
   function paintTopPosts(d) {
+    st('#topRows', 'ready');
     var posts = (d.posts || []).slice().sort(function (a, b) {
       return ((b.likes || 0) + (b.replies || 0) + (b.reposts || 0)) -
         ((a.likes || 0) + (a.replies || 0) + (a.reposts || 0));
@@ -219,8 +222,28 @@
     }).join('') : '<tr><td colspan="5"><div class="empty">ยังไม่มีโพสต์</div></td></tr>';
   }
 
+  /* ── cross-module hook: a term chip filters the post list ─ */
+  document.addEventListener('harken:filter', function (e) {
+    var term = (e.detail && e.detail.term) || '';
+    var hint = $('#topPostsHint');
+    if (!term) return;
+    if (V.filterTerm === term) {                 // same chip again clears it
+      V.filterTerm = '';
+      getJSON('/api/posts?limit=60').then(paintTopPosts).catch(function () {});
+      if (hint) hint.textContent = 'โพสต์ในภาพรวม';
+      return;
+    }
+    V.filterTerm = term;
+    if (hint) hint.textContent = 'กำลังกรอง: ' + term;
+    getJSON('/api/posts?q=' + encodeURIComponent(term) + '&limit=60').then(function (d) {
+      paintTopPosts(d);
+      if (hint) hint.textContent = num(d.total || 0) + ' โพสต์ที่พูดถึง “' + term + '” · คลิกซ้ำเพื่อล้าง';
+    }).catch(function () { if (hint) hint.textContent = 'กรองไม่สำเร็จ'; });
+  });
+
   /* ── news (separate dataset) ──────────────────────────── */
   function paintNews(d) {
+    st('#newsRows', 'ready');
     var rows = d.news || [];
     $('#newsHint').textContent = num(d.total || 0) + ' ข่าว · แยกจากโซเชียลโดยสิ้นเชิง';
     $('#newsSay').textContent = 'ไม่ถูกนับรวมกับตัวเลขโซเชียลด้านบน';
@@ -236,6 +259,12 @@
   /* ── day card ─────────────────────────────────────────── */
   function showDay(iso, idx) {
     if (!iso || !V.trend) return;
+    /* tell any listener (the detail panel) which day was chosen */
+    var dayDetail = { date: iso, iso: iso, idx: idx,
+                      label: (V.trend.labels || [])[idx] || iso,
+                      n: (V.trend.cur || [])[idx] || 0 };
+    document.dispatchEvent(new CustomEvent('harken:day-select', { detail: dayDetail }));
+    document.dispatchEvent(new CustomEvent('harken:day', { detail: dayDetail }));
     var card = $('#dayCard');
     var label = (V.trend.labels || [])[idx] || iso;
     var n = (V.trend.cur || [])[idx] || 0;
@@ -256,7 +285,13 @@
   }
 
   /* ── load ─────────────────────────────────────────────── */
+  function st(sel, state, opts) {
+    if (window.HarkenStates) window.HarkenStates.set(sel, state, opts);
+  }
+  var DATA_REGIONS = ['#topRows', '#zoneRows', '#issues', '#newsRows'];
+
   function load() {
+    DATA_REGIONS.forEach(function (sel) { st(sel, 'loading'); });
     var trendUrl = '/api/trend?gran=' + V.gran + '&days=7';
     return Promise.all([
       getJSON('/api/stats'),
@@ -286,6 +321,7 @@
       $('#liveDot').style.background = 'var(--pos)';
       $('#banner').classList.remove('on');
     }).catch(function (e) {
+      DATA_REGIONS.forEach(function (sel) { st(sel, 'error', { message: 'ดึงข้อมูลไม่สำเร็จ' }); });
       $('#banner').classList.add('on');
       $('#bannerMsg').textContent = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ' + e.message;
       $('#liveDot').style.background = 'var(--neg)';

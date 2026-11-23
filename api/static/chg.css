@@ -1,0 +1,106 @@
+/* Scoped change strip; all colours follow sl.css in both themes. */
+.chgbar {
+  display: none;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink-2);
+  font-size: max(12px, var(--fs-ui));
+  line-height: var(--lh-body);
+  letter-spacing: normal;
+}
+
+.chgbar.chgbar--ready:not([hidden]) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chgbar__lead {
+  flex: 0 0 auto;
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: max(12px, var(--fs-label));
+  font-weight: 500;
+}
+
+.chgbar .chgbar__chip {
+  --chg-tone: var(--neu);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 34px;
+  margin: 0;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--chg-tone) 22%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chg-tone) 11%, var(--card));
+  color: color-mix(in srgb, var(--chg-tone) 90%, var(--ink) 10%);
+  font: inherit;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  box-shadow: none;
+  transition: transform 100ms ease-out;
+}
+
+.chgbar .chgbar__chip--pos { --chg-tone: var(--pos); }
+.chgbar .chgbar__chip--neg { --chg-tone: var(--neg); }
+
+.chgbar__term {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chgbar__delta {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.chgbar .chgbar__chip:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+
+.chgbar .chgbar__chip:active { transform: translateY(1px); }
+
+@media (pointer: coarse) {
+  .chgbar .chgbar__chip { min-height: 44px; }
+}
+
+/* Phones: five wrapped chips cost ~180px of the fold. One scrollable row keeps
+   the KPI numbers in view; the lead sticks so the strip still says what it is. */
+@media (max-width: 640px) {
+  .chgbar.chgbar--ready:not([hidden]) {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .chgbar.chgbar--ready::-webkit-scrollbar { display: none; }
+  .chgbar__lead {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    margin-right: 10px;
+    padding-right: 8px;
+    background: var(--card);
+    box-shadow: 10px 0 12px -10px color-mix(in srgb, var(--ink) 28%, transparent);
+  }
+  .chgbar .chgbar__chip { flex: 0 0 auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chgbar .chgbar__chip { transition: none; }
+  .chgbar .chgbar__chip:active { transform: none; }
+}

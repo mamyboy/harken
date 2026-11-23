@@ -1,0 +1,153 @@
+/* Scoped companion to peakpanel.js; inherits the shared light/dark tokens. */
+.peak-panel {
+  position: fixed;
+  z-index: 70;
+  top: var(--peak-panel-top, 82px);
+  right: 16px;
+  bottom: 16px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  opacity: 0;
+  transform: translateX(calc(100% + 16px));
+  transition: transform 140ms cubic-bezier(.16,1,.3,1), opacity 140ms ease;
+  pointer-events: none;
+}
+.peak-panel[hidden] { display: none; }
+.peak-panel.is-open {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+  transition-duration: 180ms;
+}
+.peak-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+  padding: 18px 16px 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.peak-panel__head > div { min-width: 0; }
+.peak-panel__eyebrow {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: var(--fs-label);
+}
+.peak-panel__head h2 {
+  margin: 0;
+  font-size: var(--fs-title);
+  line-height: 1.5;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.peak-panel__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--track);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.peak-panel__close:hover { color: var(--violet-d); background: var(--violet-wash); }
+.peak-panel__body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 16px 18px 20px;
+}
+.peak-panel__summary { margin-bottom: 16px; }
+.peak-panel__count {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.peak-panel__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.peak-panel__chip {
+  padding: 3px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  background: var(--track);
+  color: var(--ink-2);
+  font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums;
+}
+.peak-panel__caption { margin: 0 0 8px; color: var(--muted); font-size: var(--fs-label); }
+.peak-panel__posts { list-style: none; padding: 0; margin: 0; }
+.peak-panel__item { min-width: 0; border-top: 1px solid var(--line); }
+.peak-panel__post {
+  display: block;
+  min-width: 0;
+  padding: 14px 4px;
+  border-radius: 8px;
+  color: var(--ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.peak-panel__post:hover { color: var(--ink); background: var(--violet-wash); text-decoration: none; }
+.peak-panel__post:focus-visible, .peak-panel__close:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+.peak-panel__meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.peak-panel__author { min-width: 0; color: var(--ink); font-size: var(--fs-ui); font-weight: 600; }
+.peak-panel__platform { color: var(--muted); font-size: var(--fs-label); }
+.peak-panel__excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  margin: 6px 0;
+  color: var(--ink-2);
+  font-size: var(--fs-body);
+  line-height: 1.65;
+}
+.peak-panel__time { display: block; color: var(--muted); font-size: var(--fs-label); }
+.peak-panel__state { margin: 12px 0; padding: 20px 0; color: var(--muted); font-size: var(--fs-body); }
+.peak-panel__state--error { color: var(--neg); }
+/* Inline styles set by the legacy tooltip cannot override this open-state guard. */
+html.peak-panel-open #dayCard { display: none !important; }
+@media (max-width: 899px) {
+  .peak-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-width: none;
+    max-height: 70vh;
+    border-radius: 14px 14px 0 0;
+    transform: translateY(100%);
+  }
+  .peak-panel.is-open { transform: translateY(0); }
+  .peak-panel__body { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .peak-panel, .peak-panel.is-open { transition: none; }
+}
