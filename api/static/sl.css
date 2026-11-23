@@ -318,6 +318,8 @@ mark{background:#FFF2A8; color:inherit; border-radius:3px; padding:0 1px}
   gap:14px; align-items:center}
 .sl-donut-svg{min-width:0}
 .sl-donut-legend{min-width:0}
+/* legend names wrap instead of truncating to "X (…" now that the rail narrows this column */
+.sl-donut-legend .rankrow .rt{white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35}
 .sl-swatch{display:inline-block; width:9px; height:9px; border-radius:3px}
 @media (max-width:520px){
   .sl-donut{grid-template-columns:minmax(0,1fr); gap:6px; justify-items:center}
@@ -355,6 +357,62 @@ mark{background:#FFF2A8; color:inherit; border-radius:3px; padding:0 1px}
 }
 
 .card>.tablewrap:last-child{padding-bottom:6px}
+
+
+/* ── console rail (shell) ──────────────────────────────────────────────
+   Desktop turns the horizontal strip into a fixed navy rail: the identity
+   becomes a permanent left wall and the analysis field gets the whole width.
+   Below 861px it reverts to the horizontal strip — a phone has no left wall. */
+@media (min-width:861px){
+  body{padding-left:248px}
+  .topnav{position:fixed; top:0; left:0; bottom:0; width:248px; z-index:60;
+    display:flex; flex-direction:column; align-items:stretch; gap:0;
+    padding:22px 14px 18px; border-right:1px solid rgba(255,255,255,.08);
+    background:linear-gradient(180deg,#0F1B33 0%,#16244A 58%,#111B38 100%);
+    box-shadow:1px 0 0 rgba(15,27,51,.06)}
+  .topnav .brand{color:#fff; gap:11px}
+  .topnav .brand h1{color:#fff; font-size:16px}
+  .topnav .brand .sub{color:rgba(255,255,255,.6)}
+  .topnav .brand .mark{width:38px; height:38px; border-radius:12px}
+  .topnav .navspace{flex:0 1 auto; height:22px}
+  .topnav .navlinks{flex:1; flex-direction:column; align-items:stretch; gap:5px}
+  .topnav .navlink{justify-content:flex-start; min-height:38px; padding:0 13px;
+    border:1px solid transparent; background:transparent; color:rgba(255,255,255,.84);
+    border-radius:11px; font-size:13px}
+  .topnav .navlink:hover{background:rgba(255,255,255,.08); border-color:transparent; color:#fff}
+  .topnav .navlink[aria-current="page"]{background:var(--violet); border-color:var(--violet); color:#fff;
+    box-shadow:0 8px 20px rgba(109,40,217,.38)}
+  .topnav .navlinks>.pill{order:2; margin-top:auto; align-self:stretch; justify-content:center;
+    background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.16); color:rgba(255,255,255,.82)}
+  .topnav .navlinks>.pill .dot{background:#4ADE80}
+  .shell{padding-left:18px; padding-right:22px}
+}
+@media (max-width:860px){
+  body{padding-left:0}
+  .topnav{position:static; width:auto; flex-direction:row; padding:4px 2px 14px;
+    background:transparent; border:0; box-shadow:none}
+  /* one row, scrolls sideways: four tabs must never wrap onto a second line */
+  .topnav .navlinks{width:100%; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none;
+    -webkit-overflow-scrolling:touch; padding-bottom:2px}
+  .topnav .navlinks::-webkit-scrollbar{display:none}
+  .topnav .navlink{flex:0 0 auto; white-space:nowrap}
+  .topnav .brand h1{color:var(--ink)}
+  .topnav .brand .sub{color:var(--muted)}
+  .topnav .navlinks{flex:0 1 auto; flex-direction:row}
+}
+
+/* ── the lead KPI carries the accent ───────────────────────────────────
+   One metric per screen is the headline; making the first card solid violet
+   gives the row a focal point without filling the field with gradient. */
+.kpi.lead{background:linear-gradient(150deg,#5B21B6 0%,#6D28D9 58%,#1D6FF2 118%);
+  border-color:rgba(109,40,217,.5); box-shadow:0 14px 30px rgba(76,29,149,.28)}
+.kpi.lead::before{display:none}
+.kpi.lead .k{color:rgba(255,255,255,.82)}
+.kpi.lead .v{color:#fff; font-size:34px; letter-spacing:-.035em}
+.kpi.lead .f{color:rgba(255,255,255,.74)}
+.kpi.lead:hover{box-shadow:0 20px 40px rgba(76,29,149,.34)}
+.kpis .kpi .v{font-size:30px}
+@media (max-width:640px){ .kpis .kpi .v{font-size:24px} .kpi.lead .v{font-size:26px} }
 
 @media (prefers-reduced-motion: reduce){
   /* keep state visible, remove travel and looping */

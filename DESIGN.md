@@ -217,7 +217,7 @@ A cool eight-step neutral ramp carries the structure; two saturated roles do the
 
 ## Layout
 
-Glass panels on a fixed gradient ground, inside a 1460px shell with 18px gutters (12px at ≤640px). KPI row is a 5-up grid at ≥1180px, 3-up to 900px, then 2-up — never one column, because paired metrics lose meaning alone. The main analysis grid is 1.7fr + 0.9fr and collapses to a single column at ≤1180px; secondary grids are 2-up and 3-up, both collapsing at ≤900px. Section headings are separated by 26px above and 11px below, so a new zone reads as a seam rather than a paragraph. Below 720px tables restack into cards (`td[data-l]` supplies the label) instead of scrolling sideways, and every tap target clears 40px.
+**The console rail.** From 861px up the identity is a fixed 248px navy rail on the left — the page ground runs edge to edge beside it, and the analysis field gets the remaining width inside a 1460px shell with 18px gutters (12px at ≤640px). Below 861px the rail would eat a third of the screen, so it becomes a single-row horizontal strip that scrolls sideways rather than wrapping. KPI row is a 5-up grid at ≥1180px, 3-up to 900px, then 2-up — never one column, because paired metrics lose meaning alone. The main analysis grid is 1.7fr + 0.9fr and collapses to a single column at ≤1180px; secondary grids are 2-up and 3-up, both collapsing at ≤900px. Section headings are separated by 26px above and 11px below, so a new zone reads as a seam rather than a paragraph. Below 720px tables restack into cards (`td[data-l]` supplies the label) instead of scrolling sideways, and every tap target clears 40px.
 
 ## Elevation & Depth
 
@@ -247,14 +247,16 @@ Gently curved, one ladder: **18px** is the panel radius and the default for anyt
 ### Cards / Containers
 - `rgba(255,255,255,.86)` + blur(10px), 18px radius, #E4EBF7 hairline, `--shadow`.
 - Head: 15px 18px 0, title 14.5px/600, hint right-aligned at 12px Muted Faint. Body: 14px 18px 18px.
-- KPI tiles add the 3px violet→cyan crown (`::before`, opacity .85) and lift 2px on hover; selected rows use violet wash + inset 3px violet bar, never a glow.
+- KPI tiles add the 3px violet→cyan crown (`::before`, opacity .85) and lift 2px on hover; selected rows use a violet wash and a strengthened label, never a coloured side bar.
+- **The lead KPI** (first card of the row, `.kpi.lead`) is the one solid-violet surface among the metric tiles: 150deg #5B21B6 → #6D28D9 → #1D6FF2, white 30px numerals, white@82% key, crown suppressed. One per view, always the metric the page is about.
 
 ### Inputs / fields
 - White field, #D6E2F3 border, 12px radius, 9px vertical padding; the select carries an inline 11.5px muted label.
 - **Focus:** border goes violet plus `0 0 0 3px rgba(109,40,217,.12)` — a ring, not a glow.
 
 ### Navigation
-- A top strip, not a rail: 42px gradient brand mark (14px radius, blue→cyan) + 17px/700 wordmark, nav links as 11px-radius pills on 70% white. Active = solid violet. ≤640px: 15px wordmark, 12px links, all ≥40px tall.
+- **Rail (≥861px):** navy gradient wall (#0F1B33 → #16244A → #111B38), 1px white@8% right edge, brand at top (38px mark, 16px white wordmark, white@60% subtitle), nav links stacked full-width at rgba(255,255,255,.84) with an 8% hover wash, active = solid violet pill with a violet lift. The live clock pill is ordered to the bottom of the rail with `margin-top:auto`.
+- **Strip (≤860px):** the same links in one horizontally scrolling row, `flex-wrap:nowrap`, scrollbar hidden — four tabs must never wrap to a second line.
 
 ### [Signature] Zone hero
 - 22px radius, `linear-gradient(140deg,#241355 0%,#4C1D95 46%,#6D28D9 78%,#1D6FF2 130%)`, 46px top padding so a floating back-link never collides with the title, a radial white bloom anchored bottom-centre, kicker at 11px uppercase 0.1em, title 26px, platform chips at white@16%, and a 3-cell stat group on the right (10.5px keys, 22px tabular values).
@@ -272,11 +274,12 @@ Gently curved, one ladder: **18px** is the panel radius and the default for anyt
 - **Do** honour `prefers-reduced-motion`: skeletons go static (#EEF3FB), hover lifts drop the translate, no status dot loops. State must still be visible without motion.
 - **Do** draw charts at the measured container width, never a fixed wide viewBox — that keeps axis text at a real 12px on a phone.
 - **Do** strip colour out of a nested container: a filter bar inside a card is transparent and borderless (.filters-inline), never a second panel.
+- **Do** keep exactly one solid-violet card per view — the lead KPI. Two would make the field shout and neither would read as the headline.
 
 ### Don't:
 - **Don't** use coral for body or small text on white; the smallest coral text role is a chip on coral wash.
 - **Don't** put a hue glow on analysis panels or rows — coloured lifts belong to the zone hero and brand mark only.
 - **Don't** display 0 where data was never fetched.
-- **Don't** fill a whole analysis card with a violet→cyan gradient; at that scale the gradient is limited to the 3px KPI crown, progress fills, and ranking bars.
+- **Don't** fill a whole analysis card with a violet→cyan gradient; outside the lead KPI and the zone hero, the gradient is limited to the 3px KPI crown, progress fills, and ranking bars.
 - **Don't** treat Console Blue as an action colour — buttons, links, and active states are violet.
 - **Don't** stack a shadow and a blur on the same element beyond the panel pattern; interior cells stay flat.
