@@ -40,7 +40,7 @@ html.viz-heat .vh-cells rect[data-level="3"] {fill:color-mix(in srgb,var(--viole
 html.viz-heat .vh-cells rect[data-level="4"] {fill:color-mix(in srgb,var(--violet) 80%,var(--track));}
 html.viz-heat .vh-cells rect[data-level="5"] {fill:color-mix(in srgb,var(--violet) 100%,var(--track));}
 html.viz-heat .vh-cells rect[data-hottest="true"] {fill:color-mix(in srgb,var(--violet) 100%,var(--track));
-  stroke:var(--violet-d); stroke-width:1.5;}
+  stroke:var(--ink); stroke-width:1.5; paint-order:stroke;}
 html.viz-heat .vh-cells rect:focus-visible {stroke:var(--ink); stroke-width:2; stroke-dasharray:3 2;}
 html.viz-heat .vh-tip {
   position:fixed; z-index:10000; pointer-events:none; max-width:min(320px,calc(100vw - 16px));
