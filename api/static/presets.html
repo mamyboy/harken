@@ -16,36 +16,39 @@
 <style>
   .kwbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
   .kwbar input[type=text]{flex:1 1 280px;min-width:220px;padding:12px 14px;border-radius:12px;
-    border:1px solid var(--line,#dfe3ee);font:inherit;font-size:16px;background:#fff}
-  .kwbar select{padding:11px 12px;border-radius:12px;border:1px solid var(--line,#dfe3ee);
-    font:inherit;background:#fff}
+    border:1px solid var(--line-2);font:inherit;font-size:16px;background:var(--card);color:var(--ink)}
+  .kwbar select{padding:11px 12px;border-radius:12px;border:1px solid var(--line-2);
+    font:inherit;background:var(--card);color:var(--ink)}
   .plat{display:flex;gap:8px;flex-wrap:wrap}
   .plat label{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;
-    border:1px solid var(--line,#dfe3ee);background:#fff;cursor:pointer;font-size:14px;user-select:none}
-  .plat input{accent-color:#6D28D9}
+    border:1px solid var(--line-2);background:var(--card);color:var(--ink);cursor:pointer;font-size:14px;user-select:none}
+  .plat input{accent-color:var(--violet)}
   #cards{align-items:stretch}
   .pcard{display:flex;flex-direction:column;gap:10px;height:100%}
   .pcard .card-body{display:flex;flex-direction:column;gap:10px;flex:1}
-  .pcard h3{margin:0;font-size:17px}
-  .pcard p{margin:0;color:#3a4056;font-size:14px;line-height:1.55}
-  .trap{font-size:13px;padding:9px 11px;border-radius:10px;background:#FFF7E6;color:#7a5300;
-    border:1px solid #F3D9A4}
+  .pcard h3{margin:0;font-size:var(--fs-title);font-weight:600}
+  .pcard p{margin:0;color:var(--ink-2);font-size:var(--fs-body);line-height:var(--lh-body)}
+  .trap{font-size:var(--fs-ui);padding:9px 11px;border-radius:10px;background:var(--neu-wash);color:var(--neu);
+    border:1px solid color-mix(in srgb, var(--neu) 32%, transparent)}
   .pcard .row{display:flex;gap:8px;align-items:center;margin-top:auto;padding-top:6px}
-  .pcard input.extra{flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--line,#dfe3ee);font:inherit}
+  .pcard input.extra{flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--line-2);
+    font:inherit;background:var(--card);color:var(--ink)}
   .chips .chip{cursor:pointer}
-  .job{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line,#eceff7)}
+  .job{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
   .job:first-child{border-top:0}
   .job .meta{flex:1;min-width:0}
   .job .t{font-weight:600;font-size:14px}
-  .job .s{font-size:13px;color:var(--muted,#5b6178);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .job pre{margin:6px 0 0;font-size:12px;background:#F7F8FC;border-radius:8px;padding:8px;
+  .job .s{font-size:var(--fs-ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .job pre{margin:6px 0 0;font-size:var(--fs-label);background:var(--track);color:var(--ink-2);border-radius:8px;padding:8px;
     max-height:120px;overflow:auto;white-space:pre-wrap}
   .st{font-size:12px;padding:3px 9px;border-radius:999px;white-space:nowrap}
-  .st.run{background:#E9E3FF;color:#4C1D95}
-  .st.done{background:#E4F6EC;color:#166534}
+  .st.run{background:var(--violet-wash);color:var(--violet-d)}
+  .st.done{background:var(--pos-wash);color:var(--pos)}
   .st.run::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
-    background:#6D28D9;margin-right:6px}
-  .busy{font-size:12px;color:#8A5A00}
+    background:var(--violet);margin-right:6px}
+  .busy{font-size:var(--fs-label);color:var(--neu)}
+  #banner[data-state="err"]{background:var(--neg-wash); color:var(--neg);
+    border:1px solid color-mix(in srgb, var(--neg) 34%, transparent); border-radius:12px; padding:9px 12px}
 </style>
 </head>
 <body>
@@ -123,7 +126,7 @@
     <span class="tag">สถานะ</span>
     <h2>งานที่รันอยู่และเพิ่งจบ</h2>
     <div class="card"><div class="card-body" id="jobs"><div class="empty">ยังไม่มีงาน</div></div></div>
-    <p style="font-size:13px;color:#5b6178;margin-top:8px">
+    <p style="font-size:13px;color:var(--muted);margin-top:8px">
       ผลจะไหลเข้าแดชบอร์ดเองเมื่อ worker อ่านไฟล์เสร็จ ·
       <a href="/">ดูภาพรวม</a>
     </p>

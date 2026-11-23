@@ -63,6 +63,8 @@ body{
   background-attachment:fixed;
 }
 .num{font-variant-numeric:tabular-nums; letter-spacing:-.01em}
+/* placeholder is text too: the UA default #757575 clears neither ground */
+input::placeholder,textarea::placeholder{color:var(--muted); opacity:1}
 button{font-family:inherit}
 a{color:var(--brand-ink); text-decoration:none}
 a:hover{text-decoration:underline}

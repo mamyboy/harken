@@ -7,8 +7,8 @@ let chosen = new Set();
 function say(msg, bad = false) {
   $('#bannerMsg').textContent = msg;
   $('#banner').classList.toggle('show', true);
-  $('#banner').style.background = bad ? '#FEE2E2' : '';
-  $('#banner').style.color = bad ? '#991B1B' : '';
+  var bn = $('#banner');
+  if (bn) { bn.dataset.state = bad ? 'err' : ''; }
 }
 
 async function loadMeta() {
