@@ -105,5 +105,14 @@ $('#kw').addEventListener('input', render);
 $('#runAll').addEventListener('click', () => META.presets.forEach(p => run(p.id)));
 $('#kw').addEventListener('keydown', e => { if (e.key === 'Enter') run(META.presets[0].id); });
 
+document.addEventListener('DOMContentLoaded', function () {
+  var keyword = new URLSearchParams(location.search).get('kw');
+  var input = document.getElementById('kw');
+  if (input && keyword && keyword.trim()) {
+    input.value = keyword.trim();
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+});
+
 loadMeta().then(poll);
 setInterval(poll, 2000);

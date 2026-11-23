@@ -225,6 +225,12 @@ The same product at night, not an inverted grey theme. `html[data-theme="dark"]`
 
 **The console rail.** From 861px up the identity is a fixed 248px navy rail on the left — the page ground runs edge to edge beside it, and the analysis field gets the remaining width inside a 1460px shell with 18px gutters (12px at ≤640px). Below 861px the rail would eat a third of the screen, so it becomes a single-row horizontal strip that scrolls sideways rather than wrapping. KPI row is a 5-up grid at ≥1180px, 3-up to 900px, then 2-up — never one column, because paired metrics lose meaning alone. The main analysis grid is 1.7fr + 0.9fr and collapses to a single column at ≤1180px; secondary grids are 2-up and 3-up, both collapsing at ≤900px. Section headings are separated by 26px above and 11px below, so a new zone reads as a seam rather than a paragraph. Below 720px tables restack into cards (`td[data-l]` supplies the label) instead of scrolling sideways, and every tap target clears 40px.
 
+### App bar
+
+A sticky glass strip opens the content column on every page: breadcrumb on the left, a quick keyword field in the middle (`⌘K` focuses it, `?kw=` carries the word to /presets), a live update chip on the right. It is 56px, `top:10px`, 16px radius, `rgba(255,255,255,.72)` with a 14px blur, and it deepens its shadow and border once the page scrolls (`.is-stuck`) so it reads as pinned rather than pasted. In dark it lifts to `rgba(32,45,78,.92)` — the same navy family one step lighter, never a grey bar. The live chip carries its own ground and hairline; text inside is `--muted` at 4.9:1 light and 6.3:1 dark.
+
+**Motion budget.** One authored moment per view: the five KPI tiles rise 10px with a 45ms stagger and a `cubic-bezier(.16,1,.3,1)` ease; cards then fade up once at 400ms. Nothing else enters. The lead KPI's gradient drifts on hover instead of lifting, cards lift 2px, and `prefers-reduced-motion` cancels all of it. Motion never animates layout.
+
 ## Elevation & Depth
 
 Hybrid: optical depth from glass, structural depth from two navy-tinted shadows. Every panel sits at `--shadow` (`0 1px 2px rgba(15,27,51,.04), 0 10px 28px rgba(15,27,51,.07)`) and lifts on hover to `--shadow-lg` (`0 2px 6px .06, 0 22px 48px .10`) with a 1–2px rise. Shadow colour is always neutral navy `rgba(15,27,51,…)`; the only coloured lifts in the system are the zone hero (`0 16px 40px rgba(76,29,149,.30)`) and the brand mark (`0 10px 22px rgba(29,111,242,.32)`), where the glow is the identity.

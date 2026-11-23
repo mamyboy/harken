@@ -510,6 +510,115 @@ html[data-theme="dark"] select{color-scheme:dark}
   html[data-theme="dark"] tbody tr{background:var(--card)}
 }
 
+/* ── app bar: a grounded anchor above the analysis field ───────────── */
+html{scroll-padding-top:84px}
+.appbar{position:sticky; top:10px; z-index:30; display:flex; height:56px;
+  gap:14px; align-items:center; padding:0 8px 0 6px; margin:0 0 16px;
+  border-radius:16px; border:1px solid var(--line); background:rgba(255,255,255,.72);
+  backdrop-filter:blur(14px) saturate(140%); -webkit-backdrop-filter:blur(14px) saturate(140%);
+  box-shadow:0 6px 18px rgba(15,27,51,.06); will-change:box-shadow;
+  transition:box-shadow 180ms, border-color 180ms; animation:appbarIn 260ms ease-out backwards}
+.appbar.is-stuck{box-shadow:0 10px 26px rgba(15,27,51,.12); border-color:var(--line-2)}
+html[data-theme="dark"] .appbar{background:rgba(18,27,48,.80); box-shadow:0 10px 26px rgba(0,0,0,.42)}
+@supports not (backdrop-filter:blur(1px)){
+  .appbar{background:rgba(255,255,255,.96)}
+  html[data-theme="dark"] .appbar{background:rgba(18,27,48,.96)}
+}
+.crumbs{display:flex; align-items:center; min-width:0; flex:0 1 auto}
+.crumbs a.cr{font-size:12.5px; font-weight:600; color:var(--muted); white-space:nowrap}
+.crumbs a.cr:hover{text-decoration:underline; text-underline-offset:3px}
+.crumbs a.cr:focus-visible{color:var(--ink)}
+.crumbs .cr-sep{width:14px; height:14px; flex:none; margin:0 2px; color:var(--muted-2)}
+.crumbs .cr-on{font-size:12.5px; font-weight:700; color:var(--ink); white-space:nowrap}
+.crumbs [aria-current="page"],.crumbs [aria-current="page"]:hover{text-decoration:none}
+.qsearch{flex:1 1 320px; max-width:520px; min-width:0; height:36px; display:flex;
+  align-items:center; gap:8px; padding:0 6px 0 11px; border-radius:11px;
+  border:1px solid var(--line-2); background:var(--chip-bg)}
+.qsearch:focus-within{border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-wash)}
+.qs-ic{width:15px; height:15px; flex:none; color:var(--muted)}
+.qs-in{flex:1; width:100%; min-width:0; border:0; background:transparent;
+  font:inherit; font-size:13px; color:var(--ink); outline:none}
+.qs-in::placeholder{color:var(--muted-2)}
+.qsk{flex:none; font:600 11px var(--sans); padding:1px 4px; background:var(--card);
+  border:1px solid var(--line-2); border-radius:4px; color:var(--muted); white-space:nowrap}
+.qs-go{display:inline-flex; align-items:center; justify-content:center; flex:none;
+  width:28px; height:28px; padding:0; border:0; border-radius:8px;
+  background:var(--violet); color:#fff; cursor:pointer}
+.qs-go svg{width:15px; height:15px}
+.qs-go:hover{background:#5B21B6}
+.ab-right{display:flex; align-items:center; gap:8px; flex:none; margin-left:auto}
+.ab-live{display:inline-flex; align-items:center; gap:7px; padding:4px 8px;
+  border:1px solid var(--line); border-radius:99px; font-size:12px;
+  color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap}
+.ab-live .dot{position:relative; flex:none; width:7px; height:7px; background:#16A34A; color:#16A34A}
+html[data-theme="dark"] .ab-live .dot{background:#4ADE80; color:#4ADE80}
+.ab-live .dot::after{content:""; position:absolute; inset:-3px; border:1px solid currentColor;
+  border-radius:50%; opacity:0; pointer-events:none}
+.ab-live.is-live .dot::after,.ab-live .dot.is-live::after{animation:liveRing 2s ease-out infinite}
+.ab-live.is-idle .dot,.ab-live .dot.is-idle{background:var(--muted-2); color:var(--muted-2)}
+.ab-live.is-err .dot,.ab-live .dot.is-err{background:#C22A2E; color:#C22A2E}
+html[data-theme="dark"] .ab-live.is-err .dot,
+html[data-theme="dark"] .ab-live .dot.is-err{background:#F87171; color:#F87171}
+.ab-live.is-idle .dot::after,.ab-live.is-err .dot::after,
+.ab-live .dot.is-idle::after,.ab-live .dot.is-err::after{animation:none; opacity:0}
+@media (max-width:899px){.qsk{display:none}}
+@media (max-width:860px){
+  .appbar{top:6px; height:52px; gap:8px}
+  .crumbs{overflow:hidden}
+  .crumbs .cr-on{overflow:hidden; text-overflow:ellipsis; min-width:0}
+  .qsearch{max-width:none}
+  .ab-live #abMeta{display:none}
+}
+
+/* ── motion budget: one entrance, a lead gradient, a live signal ───── */
+@keyframes riseIn{from{opacity:0; transform:translateY(10px)}to{opacity:1; transform:none}}
+@keyframes appbarIn{from{opacity:0}to{opacity:1}}
+@keyframes liveRing{0%{transform:scale(.65); opacity:.65}100%{transform:scale(1.65); opacity:0}}
+.kpis .kpi{animation:riseIn .52s cubic-bezier(.16,1,.3,1) both}
+.kpis .kpi:nth-child(1){animation-delay:0ms}
+.kpis .kpi:nth-child(2){animation-delay:45ms}
+.kpis .kpi:nth-child(3){animation-delay:90ms}
+.kpis .kpi:nth-child(4){animation-delay:135ms}
+.kpis .kpi:nth-child(5){animation-delay:180ms}
+.card{animation:riseIn .4s cubic-bezier(.16,1,.3,1) backwards;
+  transition:transform 160ms ease-out, border-color 160ms ease-out, box-shadow 160ms ease-out}
+.kpi.lead{background-size:150% 150%; background-position:50% 50%;
+  transition:background-position 600ms ease-out}
+/* Neutralise legacy lift on touch; hover belongs only to hover-capable devices. */
+.card.lift:hover{transform:none; box-shadow:var(--shadow)}
+.kpi:hover{transform:none; box-shadow:var(--shadow)}
+.kpi.lead:hover{transform:none; box-shadow:0 14px 30px rgba(76,29,149,.28)}
+@media (hover:hover){
+  .card:hover,.card.lift:hover{transform:translateY(-2px);
+    border-color:color-mix(in srgb,var(--violet) 22%,var(--line)); box-shadow:var(--shadow-lg)}
+  .kpi.lead:hover{background-position:100% 0}
+}
+:focus-visible{outline:2px solid var(--violet); outline-offset:2px}
+
+/* ── containment and themed browser surfaces ──────────────────────── */
+.card,.kpi{contain:layout paint style}
+.tablewrap{content-visibility:auto; contain-intrinsic-size:220px}
+html{scrollbar-color:var(--line-2) transparent; scrollbar-width:auto}
+::-webkit-scrollbar{width:10px; height:10px}
+::-webkit-scrollbar-thumb{background:var(--line-2); border-radius:999px}
+::-webkit-scrollbar-track{background:transparent}
+html[data-theme="dark"]{scrollbar-color:var(--line-2) transparent}
+html[data-theme="dark"] ::-webkit-scrollbar-thumb{background:var(--line-2)}
+html[data-theme="dark"] ::-webkit-scrollbar-track{background:transparent}
+::selection{background:var(--violet-wash); color:var(--ink)}
+input,textarea{caret-color:var(--violet)}
+
+/* ── app bar refinement: the bar must read as its own surface ───────────── */
+.appbar{border-color:var(--line-2); box-shadow:0 6px 18px rgba(15,27,51,.08)}
+.qsearch{max-width:460px}
+.ab-live{display:inline-flex; align-items:center; gap:7px; padding:5px 10px; border-radius:9px;
+  background:var(--chip-bg); border:1px solid var(--chip-line)}
+html[data-theme="dark"] .appbar{background:rgba(32,45,78,.92); border-color:rgba(255,255,255,.16);
+  box-shadow:0 10px 26px rgba(0,0,0,.50)}
+html[data-theme="dark"] .appbar.is-stuck{box-shadow:0 14px 34px rgba(0,0,0,.60)}
+html[data-theme="dark"] .ab-live{background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.14)}
+@media (hover:hover){ .appbar{transition:box-shadow .18s ease, border-color .18s ease, background .18s ease} }
+
 @media (prefers-reduced-motion: reduce){
   /* keep state visible, remove travel and looping */
   .skel{animation:none; background:#EEF3FB}
@@ -518,4 +627,10 @@ html[data-theme="dark"] select{color-scheme:dark}
   .btn,.btn-quiet,.navlink,.chip,.term,.rankrow,.issue,.bar{transition:none}
   .term:hover{transform:none}
   .sl-tip{transition:none}
+  .appbar,.appbar.is-stuck,.qsearch,.qs-go,.kpis .kpi,.card,.card:hover,.card.lift:hover,
+  .kpi,.kpi.lead,.kpi.lead:hover,.ab-live .dot,.ab-live .dot::after,
+  .ab-live.is-live .dot::after,.ab-live .dot.is-live::after{
+    animation:none!important; transition:none!important; background-position:50% 50%!important;
+  }
+  .card:hover,.card.lift:hover,.kpi:hover{transform:none!important}
 }

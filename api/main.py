@@ -1326,6 +1326,12 @@ def search_page():
                         headers={'Cache-Control': 'no-store, must-revalidate'})
 
 
+@app.get('/workspace')
+def workspace_redirect():
+    """Legacy bookmark: the zone page has lived at /search since the split."""
+    return RedirectResponse('/search', status_code=308)
+
+
 @app.get('/tools')
 def tools_page():
     """Data operations only: coverage, review queue, clearing, export.
