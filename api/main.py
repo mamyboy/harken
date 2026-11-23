@@ -1360,15 +1360,19 @@ def favicon():
     return FileResponse(os.path.join(STATIC, 'logo.svg'), media_type='image/svg+xml')
 
 
-@app.get('/static/{name}')
+@app.get('/static/{name:path}')
 def static_file(name: str):
-    """Serve hand-written assets (charts.js) — no CDN, no build step."""
+    """Serve hand-written assets (charts.js, self-hosted fonts) — no CDN, no build step."""
     path = os.path.normpath(os.path.join(STATIC, name))
     if not path.startswith(STATIC) or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail='not found')
     ctype = ('application/javascript' if name.endswith('.js')
              else 'text/css' if name.endswith('.css')
              else 'image/svg+xml' if name.endswith('.svg')
+             else 'font/woff2' if name.endswith('.woff2')
+             else 'text/plain' if name.endswith('.txt')
              else 'application/octet-stream')
-    return FileResponse(path, media_type=ctype,
-                        headers={'Cache-Control': 'no-store, must-revalidate'})
+    # fonts never change under the same filename: let the browser keep them
+    cache = ('public, max-age=31536000, immutable' if name.endswith(('.woff2', '.svg'))
+             else 'no-store, must-revalidate')
+    return FileResponse(path, media_type=ctype, headers={'Cache-Control': cache})

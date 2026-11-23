@@ -200,26 +200,31 @@ The same product at night, not an inverted grey theme. `html[data-theme="dark"]`
 
 ## Typography
 
-**Display Font:** IBM Plex Sans Thai (fallback Noto Sans Thai, system stack)
+**Display Font:** IBM Plex Sans Thai, self-hosted (`api/static/fonts`, SIL OFL 1.1, 8 woff2 files ≈ 138 KB: weights 400/500/600/700 × Thai and Latin subsets, `font-display:swap`, Thai 400+600 preloaded). Fallbacks: Noto Sans Thai → Thonburi → system stack.
 **Body Font:** same family — one face, weight- and size-differentiated
-**Label Font:** same, 11.5–12.5px semibold
+**Label Font:** same, 12px medium
 
-**Character:** a single Thai-capable sans keeps tone marks and vowels intact at every size, which is why the system never switches family for emphasis. Hierarchy comes from four moves only: size (26 → 16.5 → 14.5 → 12.5 → 11.5), weight (700 → 600 → 400), tracking (−0.02em on numerals and headings, 0 on prose), and colour (navy → slate → muted).
+**Why self-hosted.** The stack has always *named* IBM Plex Sans Thai first, but nothing shipped it, so the page actually rendered in whatever Thai font the viewer happened to have installed — Noto or Thonburi depending on the machine, different metrics, different line breaks. Shipping the family the design was drawn for is the difference between a look and a coincidence.
+
+**Character:** a single Thai-capable sans keeps tone marks and vowels intact at every size, which is why the system never switches family for emphasis. Hierarchy comes from four moves only: size (the eight tokens below), weight (600 → 500 → 400, 700 reserved for numerals and the brand), tracking (−0.02em on numerals only, 0 on every string that can contain Thai), and colour (navy → slate → muted).
+
+**The Scale.** One ladder, defined as custom properties so nothing drifts:
+`--fs-micro 11` (Latin-only marks: platform pills, ⌘K) · `--fs-label 12` · `--fs-ui 13` · `--fs-body 14.5` · `--fs-title 16` · `--fs-h2 19` · `--fs-hero 26` · `--fs-kpi 30` · `--fs-kpi-lead 34`.
+Line heights: `--lh-tight 1.3` (display), `--lh-ui 1.45` (labels), `--lh-body 1.6` (prose).
 
 ### Hierarchy
-- **Hero** (700, 26px, −0.02em, 1.2): zone hero title on the violet gradient, and 22px at ≤640px.
-- **Data** (700, 26px, −0.02em, 1.15, tabular-nums): KPI numerals — the real display voice; 22px at ≤640px.
-- **Section** (700, 16.5px): the heading that marks a new analysis zone.
-- **Title** (600, 14.5px): card heads.
+- **Hero** (600, 26px, tracking 0, `--lh-tight`, `text-wrap:balance`): zone and page hero titles on the violet gradient; 21px at ≤640px.
+- **Data** (700, 34px lead / 30px others, −0.02em, tabular-nums): KPI numerals — the real display voice. The lead card is deliberately one step larger, and the rule lives on `.kpis .kpi:not(.lead) .v` so a later `.kpis .kpi .v` cannot flatten the hierarchy again.
+- **Section** (600, 19px, tracking 0): the heading that marks a new analysis zone.
+- **Title** (600, 16px, `text-wrap:balance`): card heads — one step above body, never the same size.
 - **Body** (400, 14.5px/1.6): posts and descriptions.
-- **Prose** (400, 13.5px/1.62): snippets, list bodies.
-- **Label** (600, 12.5px): table heads, chips, pagination.
-- **Micro** (600, 11.5px): KPI keys, chart titles, platform pills.
+- **Label** (500, 12px/1.45): KPI keys, form labels, filter labels, chips.
+- **Micro** (600, 11px): Latin-only marks — platform pills, the ⌘K key cap. A Thai glyph never appears at this size.
 - **Axis** (600, 12px, tabular-nums, `var(--ink-2)` — ink-slate on light, #C6D0E4 on dark): chart ticks and date labels. Charts render at the container width so one SVG unit equals one CSS pixel; a fixed 900-unit viewBox scales 12px text down to ~5px on a phone.
 
 **The Measured-Contrast Rule.** A colour pair is not finished when it looks right on the design file: measure it against the darkest part of the lit ground, not against white. Text ≥4.5:1, large text ≥3:1, and any non-text graphic that carries meaning (axis, icon stroke) ≥3:1.
 
-**The Thai Integrity Rule.** No line-height below 1.5 at ≤13px; verify ่ ้ ี ึ ั and ๆ are never clipped at card edges or line tops. Tabular numerals are mandatory on every metric, axis label, and table cell that holds a number.
+**The Thai Integrity Rule.** No line-height below 1.5 at ≤13px; verify ่ ้ ี ึ ั and ๆ are never clipped at card edges or line tops. Tabular numerals are mandatory on every metric, axis label, and table cell that holds a number. No Thai text below 12px, and never negative or expanded tracking on Thai — it crowds combining marks and breaks clusters; tracking is a numerals-only affordance. `text-transform:uppercase` is a Latin habit and never touches a Thai label.
 
 ## Layout
 

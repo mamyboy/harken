@@ -1,3 +1,30 @@
+/* Self-hosted IBM Plex Sans Thai (SIL OFL 1.1, api/static/fonts/OFL.txt) — the family the
+   stack always named first, so the design no longer depends on a font installed on the viewer. */
+@font-face{font-family:"IBM Plex Sans Thai";font-style:normal;font-weight:400;font-display:swap;
+  src:url("/static/fonts/plexth-thai-400.woff2") format("woff2");
+  unicode-range:U+0E01-0E3A,U+0E40-0E5B}
+@font-face{font-family:"IBM Plex Sans Thai";font-style:normal;font-weight:400;font-display:swap;
+  src:url("/static/fonts/plexth-latin-400.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215}
+@font-face{font-family:"IBM Plex Sans Thai";font-style:normal;font-weight:500;font-display:swap;
+  src:url("/static/fonts/plexth-thai-500.woff2") format("woff2");
+  unicode-range:U+0E01-0E3A,U+0E40-0E5B}
+@font-face{font-family:"IBM Plex Sans Thai";font-style:normal;font-weight:500;font-display:swap;
+  src:url("/static/fonts/plexth-latin-500.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215}
+@font-face{font-family:"IBM Plex Sans Thai";font-style:normal;font-weight:600;font-display:swap;
+  src:url("/static/fonts/plexth-thai-600.woff2") format("woff2");
+  unicode-range:U+0E01-0E3A,U+0E40-0E5B}
+@font-face{font-family:"IBM Plex Sans Thai";font-style:normal;font-weight:600;font-display:swap;
+  src:url("/static/fonts/plexth-latin-600.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215}
+@font-face{font-family:"IBM Plex Sans Thai";font-style:normal;font-weight:700;font-display:swap;
+  src:url("/static/fonts/plexth-thai-700.woff2") format("woff2");
+  unicode-range:U+0E01-0E3A,U+0E40-0E5B}
+@font-face{font-family:"IBM Plex Sans Thai";font-style:normal;font-weight:700;font-display:swap;
+  src:url("/static/fonts/plexth-latin-700.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215}
+
 /* SatunEcho · Social Listening — shared design system.
  * One accent (violet), glass panels over a clinical blue canvas.
  * Used by both the overview (/) and a keyword zone (/search?run=…). */
@@ -17,13 +44,17 @@ html,body{margin:0;padding:0}
   --track:#EEF3FC; --hover-wash:#FAF7FF;
   --chip-bg:#EFF6FF; --chip-line:#CFE1FF;
   --cyan-ink:#046B85; --cyan-line:#BFEAF8;
+  --fs-micro:11px; --fs-label:12px; --fs-ui:13px; --fs-body:14.5px;
+  --fs-title:16px; --fs-h2:19px; --fs-hero:26px; --fs-kpi:30px; --fs-kpi-lead:34px;
+  --lh-tight:1.3; --lh-ui:1.45; --lh-body:1.6;
   --radius:18px; --radius-sm:12px;
   --shadow:0 1px 2px rgba(15,27,51,.04), 0 10px 28px rgba(15,27,51,.07);
   --shadow-lg:0 2px 6px rgba(15,27,51,.06), 0 22px 48px rgba(15,27,51,.10);
-  --sans:"IBM Plex Sans Thai","Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --sans:"IBM Plex Sans Thai","Noto Sans Thai",Thonburi,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 }
 body{
-  font-family:var(--sans); color:var(--ink); font-size:14.5px; line-height:1.6;
+  font-family:var(--sans); color:var(--ink); font-size:var(--fs-body); line-height:var(--lh-body);
+  font-synthesis:none;
   -webkit-font-smoothing:antialiased; min-height:100vh;
   background:
     radial-gradient(1100px 560px at 12% -8%, #E7F1FF 0%, rgba(231,241,255,0) 62%),
@@ -46,7 +77,7 @@ a:hover{text-decoration:underline}
 .brand .mark{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;flex:none;
   background:linear-gradient(140deg,var(--brand),#00B8E6); box-shadow:0 10px 22px rgba(29,111,242,.32)}
 .brand h1{margin:0; font-size:17px; font-weight:700; letter-spacing:-.01em; white-space:nowrap}
-.brand .sub{font-size:12px; color:var(--muted); margin-top:-1px}
+.brand .sub{font-size:var(--fs-label); color:var(--muted); margin-top:-1px; text-wrap:pretty; max-width:200px}
 .navspace{flex:1}
 .navlinks{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
 .navlink{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line-2);
@@ -62,7 +93,7 @@ a:hover{text-decoration:underline}
   min-width:0; transition:box-shadow .18s ease-out, transform .18s ease-out}
 .card.lift:hover{box-shadow:var(--shadow-lg); transform:translateY(-1px)}
 .card-head{display:flex; align-items:center; gap:10px; padding:15px 18px 0; flex-wrap:wrap}
-.card-head h2{margin:0; font-size:14.5px; font-weight:600; letter-spacing:-.01em}
+.card-head h2{margin:0; font-size:var(--fs-title); font-weight:600; letter-spacing:0; line-height:1.35; text-wrap:balance}
 .card-head .hint{font-size:12px; color:var(--muted-2); margin-left:auto}
 .card-body{padding:14px 18px 18px}
 .grid-2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; align-items:start}
@@ -72,10 +103,10 @@ a:hover{text-decoration:underline}
 
 /* ── section heading (the visual seam between analysis zones) ── */
 .section{display:flex; align-items:center; gap:11px; margin:26px 2px 11px; flex-wrap:wrap}
-.section .tag{font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+.section .tag{font-size:var(--fs-label); font-weight:600; letter-spacing:0; text-transform:none;
   color:var(--violet-d); background:var(--violet-wash); border:1px solid #DDCDFF;
   border-radius:99px; padding:3px 10px}
-.section h2{margin:0; font-size:16.5px; font-weight:700; letter-spacing:-.01em}
+.section h2{margin:0; font-size:var(--fs-h2); font-weight:600; letter-spacing:0; text-wrap:balance}
 .section .say{font-size:12.5px; color:var(--muted); margin-left:auto; text-align:right}
 
 /* ── KPI ────────────────────────────────────────────────── */
@@ -87,7 +118,7 @@ a:hover{text-decoration:underline}
 .kpi::before{content:""; position:absolute; inset:0 0 auto 0; height:3px;
   background:linear-gradient(90deg,var(--violet),var(--cyan)); opacity:.85}
 .kpi:hover{transform:translateY(-2px); box-shadow:var(--shadow-lg)}
-.kpi .k{font-size:11.5px; color:var(--muted); display:flex; align-items:center; gap:6px}
+.kpi .k{font-size:var(--fs-label); font-weight:500; line-height:var(--lh-ui); color:var(--muted); display:flex; align-items:center; gap:6px}
 .kpi .v{font-size:26px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums;
   margin-top:3px; display:block; line-height:1.15}
 .kpi .f{font-size:12px; color:var(--muted-2); margin-top:2px}
@@ -104,7 +135,7 @@ a:hover{text-decoration:underline}
 .zonehero .zh-main{position:relative; z-index:1; min-width:0; flex:1}
 .zonehero .zh-kicker{font-size:11px; letter-spacing:.1em; text-transform:uppercase;
   color:rgba(255,255,255,.72); font-weight:700}
-.zonehero h2{margin:4px 0 0; font-size:26px; font-weight:700; letter-spacing:-.02em; line-height:1.2}
+.zonehero h2{margin:4px 0 0; font-size:var(--fs-hero); font-weight:600; letter-spacing:0; line-height:var(--lh-tight)}
 .zonehero .zh-plats{display:flex; gap:7px; flex-wrap:wrap; margin-top:9px}
 .zonehero .zh-plats span{font-size:11.5px; font-weight:600; background:rgba(255,255,255,.16);
   border:1px solid rgba(255,255,255,.26); border-radius:99px; padding:2px 10px}
@@ -123,7 +154,7 @@ a:hover{text-decoration:underline}
   background:var(--card); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
   border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
 .filters-inline{background:transparent; border:0; border-radius:0; padding:2px 0; box-shadow:none}
-.filters .fl{font-size:11.5px; color:var(--muted-2); font-weight:600; margin-right:2px}
+.filters .fl{font-size:var(--fs-label); color:var(--muted-2); font-weight:600; margin-right:2px}
 .search{display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--line-2);
   border-radius:12px; padding:0 12px}
 .search:focus-within{border-color:var(--violet); box-shadow:0 0 0 3px rgba(109,40,217,.12)}
@@ -131,7 +162,7 @@ a:hover{text-decoration:underline}
   padding:9px 0; width:230px; min-width:0}
 .picker{display:flex; align-items:center; gap:7px; background:#fff; border:1px solid var(--line-2);
   border-radius:12px; padding:0 10px}
-.picker label{font-size:11.5px; color:var(--muted)}
+.picker label{font-size:var(--fs-label); color:var(--muted)}
 .picker select{border:0;outline:0;background:transparent;font:inherit;font-size:13px;color:var(--ink);
   padding:9px 2px; max-width:160px}
 .btn{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line-2); background:#fff;
@@ -165,7 +196,7 @@ tbody tr.row:hover,tbody tr.row[aria-expanded="true"]{background:#FAFBFF}
 .when{font-size:12.5px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums}
 .who{font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:190px}
 .tags{display:flex; gap:5px; flex-wrap:wrap; margin-top:5px}
-.pilltag{display:inline-flex; align-items:center; font-size:11px; font-weight:600; border-radius:99px;
+.pilltag{display:inline-flex; align-items:center; font-size:var(--fs-label); font-weight:600; border-radius:99px;
   padding:1px 8px; border:1px solid transparent; white-space:nowrap}
 .pilltag.plat{color:var(--cyan-ink); background:var(--cyan-wash); border-color:var(--cyan-line)}
 .pilltag.pos{color:var(--pos); background:var(--pos-wash)}
@@ -258,7 +289,7 @@ mark{background:#FFF2A8; color:inherit; border-radius:3px; padding:0 1px}
 .chartcell{border:1px solid var(--line); border-radius:14px; padding:12px 13px 8px; background:#fff}
 .charttitle{font-size:11.5px; font-weight:600; color:var(--muted); margin-bottom:6px;
   display:flex; align-items:center; gap:7px}
-.charttitle .sub{font-weight:400; color:var(--muted-2); margin-left:auto; font-size:11px}
+.charttitle .sub{font-weight:400; color:var(--muted-2); margin-left:auto; font-size:var(--fs-label)}
 .chartslot{min-width:0; overflow:hidden}
 .chartslot svg,.spark svg{display:block; width:100%; height:auto; max-width:100%}
 .dimsgrid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px}
@@ -411,11 +442,11 @@ mark{background:#FFF2A8; color:inherit; border-radius:3px; padding:0 1px}
   border-color:rgba(109,40,217,.5); box-shadow:0 14px 30px rgba(76,29,149,.28)}
 .kpi.lead::before{display:none}
 .kpi.lead .k{color:rgba(255,255,255,.88)}
-.kpi.lead .v{color:#fff; font-size:34px; letter-spacing:-.035em}
+.kpi.lead .v{color:#fff; font-size:var(--fs-kpi-lead); letter-spacing:-.035em}
 .kpi.lead .f{color:rgba(255,255,255,.88)}
 .kpi.lead:hover{box-shadow:0 20px 40px rgba(76,29,149,.34)}
-.kpis .kpi .v{font-size:30px}
-@media (max-width:640px){ .kpis .kpi .v{font-size:24px} .kpi.lead .v{font-size:26px} }
+.kpis .kpi:not(.lead) .v{font-size:var(--fs-kpi)}
+@media (max-width:640px){ .kpis .kpi:not(.lead) .v{font-size:24px} .kpi.lead .v{font-size:var(--fs-hero)} }
 
 /* ── rail icon contract + theme control ────────────────────────────── */
 .navlink{gap:10px}
@@ -444,8 +475,8 @@ html[data-theme="dark"] .themetoggle .ic-moon{display:block}
   background:radial-gradient(closest-side,rgba(255,255,255,.16),rgba(255,255,255,0) 72%);
   pointer-events:none}
 .pagehero h1,.pagehero p{position:relative; z-index:1}
-.pagehero h1{margin:0; font-size:26px; font-weight:700; line-height:1.25}
-.pagehero p{margin:8px 0 0; font-size:14px; color:rgba(255,255,255,.82); max-width:68ch}
+.pagehero h1{margin:0; font-size:var(--fs-hero); font-weight:600; line-height:var(--lh-tight)}
+.pagehero p{margin:8px 0 0; font-size:var(--fs-body); line-height:var(--lh-body); color:rgba(255,255,255,.86); max-width:68ch; text-wrap:pretty}
 @media (max-width:640px){
   .pagehero{padding:18px}
   .pagehero h1{font-size:21px}
