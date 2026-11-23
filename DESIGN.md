@@ -213,6 +213,13 @@ The same product at night, not an inverted grey theme. `html[data-theme="dark"]`
 Line heights: `--lh-tight 1.3` (display), `--lh-ui 1.45` (labels), `--lh-body 1.6` (prose).
 
 ### Hierarchy
+
+**The ladder, as measured in the browser** (1440px, `/`): page identity carries the only `<h1>` — the current page name in the app bar at 13px/700, with the brand demoted to a plain block so the document heading is the page, not the product. Zone headings 19/600 → card titles 16/600 → body 14.5/400 → labels 12/500, with numerals on their own axis at 34/700 (lead) and 30/700.
+
+**Emphasis is rationed by role, not by taste.** 600 is the workhorse for headings, table headers, usernames and chips; 700 is reserved for the brand, the KPI numerals and delta badges; metadata chips sit at 500 so they read as labels rather than a second title. A page this dense carries ~78 semibold strings, and that only stays legible because the size ladder does the ranking — never the weight alone.
+
+**Section chips are metadata, not kickers.** They sit beside the heading, never above it, in `--ink-2` on transparent with a hairline border — a coloured chip at the heading's own size competes with it and reads as a second title.
+
 - **Hero** (600, 26px, tracking 0, `--lh-tight`, `text-wrap:balance`): zone and page hero titles on the violet gradient; 21px at ≤640px.
 - **Data** (700, 34px lead / 30px others, −0.02em, tabular-nums): KPI numerals — the real display voice. The lead card is deliberately one step larger, and the rule lives on `.kpis .kpi:not(.lead) .v` so a later `.kpis .kpi .v` cannot flatten the hierarchy again.
 - **Section** (600, 19px, tracking 0): the heading that marks a new analysis zone.
