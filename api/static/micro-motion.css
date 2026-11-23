@@ -1,0 +1,71 @@
+/* Optional motion layer: no box metrics change between pending and done. */
+html.micro-motion .card,
+html.micro-motion .kpis > .kpi { animation: none; }
+html.micro-motion [data-mm-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: none;
+}
+html.micro-motion [data-mm-reveal="revealing"] {
+  opacity: 1;
+  transform: none;
+  animation: mm-reveal var(--mm-duration,260ms) cubic-bezier(.16,1,.3,1) var(--mm-delay,0ms) both;
+}
+@keyframes mm-reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+/* Both the host and its state block must agree; changing either stops instantly. */
+html.micro-motion [data-state="loading"] .hstate[data-state="loading"] {
+  background-image: linear-gradient(100deg,var(--track) 25%,color-mix(in srgb,var(--track),transparent 65%) 48%,var(--track) 72%);
+  background-size: 240% 100%;
+  animation: mm-shimmer 1.4s linear infinite;
+}
+html.micro-motion [data-state]:not([data-state="loading"]) .hstate {
+  animation: none;
+}
+@keyframes mm-shimmer {
+  from { background-position: 180% 0; }
+  to { background-position: -80% 0; }
+}
+html.micro-motion #appbar .mm-refresh {
+  position: absolute;
+  inset: 0 12px auto;
+  height: 1px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(90deg,transparent 0%,transparent 35%,var(--violet) 48%,var(--cyan) 52%,transparent 65%,transparent 100%);
+  background-size: 300% 100%;
+}
+html.micro-motion #appbar .mm-refresh.mm-sweeping {
+  opacity: 1;
+  animation: mm-sweep 900ms ease-out both;
+}
+@keyframes mm-sweep {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.micro-motion [data-mm-reveal] {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+  html.micro-motion [data-state] .hstate,
+  html.micro-motion #appbar .mm-refresh {
+    animation: none !important;
+    transition: none !important;
+  }
+  html.micro-motion #appbar .mm-refresh { opacity: 0 !important; }
+}
+
+/* Print and export must never inherit a reveal that has not happened. */
+@media print {
+  html.micro-motion [data-mm-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}

@@ -1,0 +1,46 @@
+/* Additive pointer feedback; existing surface hover rules remain authoritative. */
+@media (pointer: fine) and (hover: hover) and (prefers-reduced-motion: no-preference) {
+  html.micro-pointer :where(.card, .kpi) { position:relative; }
+  html.micro-pointer :where(.card, .kpi)::after {
+    content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--violet) 8%,transparent),transparent 72%);
+    box-shadow:inset 0 1px color-mix(in srgb,var(--violet) 9%,transparent);
+    opacity:0; transition:opacity 120ms ease-out;
+  }
+  html.micro-pointer :where(.card:hover, .kpi:hover)::after { opacity:1; }
+  /* Own layer, behind links: keep the original active fill and hover paint. */
+  html.micro-pointer :where(.topnav .navlinks) { position:relative; isolation:isolate; }
+  html.micro-pointer :where(.micro-rail-pill) {
+    position:absolute; inset:0 auto auto 0; z-index:-1; pointer-events:none;
+    border-radius:11px; background:color-mix(in srgb,var(--violet) 8%,transparent);
+    box-shadow:0 0 0 2px color-mix(in srgb,var(--violet) 22%,transparent);
+    transform-origin:0 0; transition:transform 180ms cubic-bezier(.16,1,.3,1); opacity:0;
+  }
+  html.micro-pointer :where(.micro-rail-pill[data-ready]) { opacity:1; }
+  /* Individual transform channels preserve pre-existing transform hover rules. */
+  html.micro-pointer :where(.btn, .qs-go, .chgbar__chip, .row td:last-child a) {
+    scale:1; translate:0 0;
+    transition:transform 120ms cubic-bezier(.16,1,.3,1),scale 120ms cubic-bezier(.16,1,.3,1),translate 120ms cubic-bezier(.16,1,.3,1),border-color 140ms,background 140ms,box-shadow 140ms;
+  }
+  html.micro-pointer :where(.btn:active, .qs-go:active, .chgbar__chip:active, .row td:last-child a:active) {
+    scale:.97; translate:0 1px;
+  }
+  /* chg.css already supplies its 1px active offset; do not double it. */
+  html.micro-pointer :where(.chgbar) .chgbar__chip {
+    transition:transform 120ms cubic-bezier(.16,1,.3,1),scale 120ms cubic-bezier(.16,1,.3,1);
+  }
+  html.micro-pointer :where(.chgbar__chip:active) { translate:0 0; }
+  html.micro-pointer :where(.row td:last-child a) { display:inline-block; }
+  html.micro-pointer :where(.row td:last-child) { opacity:.55; transition:opacity 120ms ease-out,transform 120ms ease-out; }
+  html.micro-pointer :where(.row:hover td:last-child, .row:focus-within td:last-child) { opacity:1; transform:translateX(2px); }
+  html.micro-pointer :where(.row:hover) { box-shadow:inset 1px 0 color-mix(in srgb,var(--violet) 45%,transparent); }
+  html.micro-pointer :where(.qs-go) {
+    transform:translate(var(--mag-x,0px),var(--mag-y,0px));
+    transition:transform 180ms ease-out,scale 120ms cubic-bezier(.16,1,.3,1),translate 120ms cubic-bezier(.16,1,.3,1);
+  }
+}
+/* Outside the media gate every added effect, including the generated pill, is inert. */
+html.micro-pointer :where(.micro-rail-pill) { pointer-events:none; }
+@media (prefers-reduced-motion: reduce), (pointer: coarse), (hover: none) {
+  html.micro-pointer :where(.micro-rail-pill) { display:none; }
+}

@@ -1,0 +1,21 @@
+/* Load after sl.css. Durations also drive the JS counter. */
+:root{--micro-data-enter:600ms;--micro-data-feedback:160ms;--micro-data-ease:cubic-bezier(.16,1,.3,1)}
+.kpi .v.micro-data-value{position:relative;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi .v.micro-data-value::after{content:attr(data-micro-delta);position:absolute;inset:auto 0 0 auto;pointer-events:none;font-size:12px;line-height:1;font-weight:600;color:var(--pos);opacity:0}
+.kpi .v.micro-data-value[data-micro-sign="neg"]::after{color:var(--neg)}
+.kpi .v.micro-data-pulse::after{animation:microDataPulse var(--micro-data-feedback) ease-out}
+.micro-data-bars .fill{transform-origin:left;animation:microDataBar var(--micro-data-enter) var(--micro-data-ease)}
+.micro-data-donut{animation:microDataReveal var(--micro-data-enter) var(--micro-data-ease)}
+/* Clip the stroked path rather than tweening stroke-dashoffset: the hard
+   compositor-only budget excludes stroke painting on every frame. */
+.micro-data-spark-path{animation:microDataDraw var(--micro-data-enter) var(--micro-data-ease)}
+.micro-data-spark-fallback{animation:microDataRise var(--micro-data-enter) var(--micro-data-ease)}
+@keyframes microDataPulse{0%,40%{opacity:1;transform:translateY(-3px)}100%{opacity:0;transform:none}}
+@keyframes microDataBar{from{transform:scaleX(0)}to{transform:none}}
+@keyframes microDataReveal{from{opacity:0;clip-path:inset(0 0 100% 0)}to{opacity:1;clip-path:inset(0)}}
+@keyframes microDataDraw{from{clip-path:inset(-10% 100% -10% 0)}to{clip-path:inset(-10% 0 -10% 0)}}
+@keyframes microDataRise{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+  .micro-data-bars .fill,.micro-data-donut,.micro-data-spark-path,.micro-data-spark-fallback,
+  .kpi .v.micro-data-value,.kpi .v.micro-data-value::after{animation:none!important;transition:none!important}
+}

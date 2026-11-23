@@ -46,7 +46,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-suites=(verify_type verify_v3 verify_v4 verify_v5 verify_ui verify_v6_states)
+suites=(verify_type verify_v3 verify_v4 verify_v5 verify_ui verify_v6_states verify_v7_motion)
 total_pass=0; total_fail=0; failed=()
 for s in "${suites[@]}"; do
   out=$(/usr/bin/python3 "tests/$s.py" 2>&1)

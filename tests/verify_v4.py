@@ -181,10 +181,24 @@ def motion(b):
     for reduced in (True, False):
         b.call('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-reduced-motion', 'value': 'reduce'}] if reduced else []})
         b.navigate('/')
-        d = b.js('''const style=s=>getComputedStyle(document.querySelector(s));return {
-kpi:style('.kpis .kpi').animationName,card:style('.card').animationName,
-lead:style('.kpi.lead').transitionDuration};''')
-        ok = d['kpi'] == 'none' and d['card'] == 'none' and d['lead'] == '0s' if reduced else d['kpi'] != 'none' and d['card'] != 'none'
+        d = b.js('''const s=e=>getComputedStyle(e);
+const els=[...document.querySelectorAll('.card, .kpis > .kpi')].slice(0,12);
+const dim=e=>parseFloat(s(e).opacity)<0.99;
+const inFold=e=>e.getBoundingClientRect().top<innerHeight;
+return {n:els.length,
+ animating:els.filter(e=>s(e).animationName!=='none').length,
+ owned:els.filter(e=>e.dataset.mmReveal).length,
+ hiddenFold:els.filter(e=>inFold(e)&&dim(e)).length,
+ hiddenAll:els.filter(dim).length,
+ lead:s(document.querySelector('.kpi.lead')).transitionDuration};''')
+        # Entrance motion may live in a keyframe (older) or in the reveal layer
+        # (micro-motion owns it and sets animation:none on the base rule). What
+        # must hold either way: reduced motion hides nothing and animates
+        # nothing; normal motion never leaves an on-screen card invisible.
+        if reduced:
+            ok = d['hiddenAll'] == 0 and d['animating'] == 0 and d['lead'] == '0s'
+        else:
+            ok = d['hiddenFold'] == 0 and (d['animating'] > 0 or d['owned'] == d['n']) and d['n'] > 0
         check('F motion ' + ('reduced' if reduced else 'normal'), ok, d)
 
 
