@@ -13,6 +13,9 @@
 <link rel="stylesheet" href="/static/micro-data.css">
 <link rel="stylesheet" href="/static/micro-pointer.css">
 <link rel="stylesheet" href="/static/micro-motion.css">
+<link rel="stylesheet" href="/static/viz-stream.css">
+<link rel="stylesheet" href="/static/viz-heat.css">
+<link rel="stylesheet" href="/static/viz-a11y.css">
 <script>try{var t=localStorage.getItem('harken-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="preload" href="/static/fonts/plexth-thai-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/static/fonts/plexth-thai-600.woff2" as="font" type="font/woff2" crossorigin>
@@ -21,6 +24,8 @@
 <script src="/static/motion.js" defer></script>
 <script src="/static/micro-pointer.js" defer></script>
 <script src="/static/micro-motion.js" defer></script>
+<script src="/static/viz-stream.js" defer></script>
+<script src="/static/viz-heat.js" defer></script>
 </head>
 <body>
 <div class="shell">
@@ -108,6 +113,23 @@
       </section>
     </div>
   </div>
+
+  <!-- ── 2b. ภาพรวมเชิงเวลา ──────────────────────────────── -->
+  <div class="section">
+    <span class="tag">ตามเวลา</span>
+    <h2>ภาพรวมเชิงเวลา</h2>
+    <span class="say">แพลตฟอร์มกับวัน และชั่วโมงกับวัน</span>
+  </div>
+
+  <section class="card lift" aria-label="แพลตฟอร์มตามช่วงเวลา">
+    <div class="card-head"><h2>แพลตฟอร์มตามช่วงเวลา</h2><span class="hint">30 วันล่าสุด</span></div>
+    <div class="card-body"><div id="vizStream"></div></div>
+  </section>
+
+  <section class="card lift" aria-label="เวลาที่คนโพสต์">
+    <div class="card-head"><h2>เวลาที่คนโพสต์</h2><span class="hint">7 วันล่าสุด · เวลาไทย</span></div>
+    <div class="card-body"><div id="vizHeat"></div></div>
+  </section>
 
   <!-- ── 3. โซนคำค้น ─────────────────────────────────────── -->
   <div class="section" id="zones">
@@ -231,5 +253,6 @@
 <script src="/static/chg.js"></script>
 <script src="/static/peakpanel.js"></script>
 <script src="/static/ov.js"></script>
+<script src="/static/viz-a11y.js"></script>
 </body>
 </html>

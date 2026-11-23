@@ -1,0 +1,69 @@
+/* Isolated overview card. All colour comes from the shared light/night tokens. */
+html.viz-heat .vh-card {
+  min-width:0; max-width:100%; position:relative; margin-block:14px;
+  border:1px solid var(--line); border-radius:var(--radius);
+  background:var(--card); box-shadow:var(--shadow); padding:16px 18px 18px;
+  color:var(--ink); font-family:var(--sans); font-size:max(12px,var(--fs-label));
+  line-height:var(--lh-body); letter-spacing:0;
+}
+html.viz-heat .vh-head {display:flex; flex-wrap:wrap; align-items:center; gap:12px; justify-content:space-between;}
+html.viz-heat .vh-head h2 {margin:0; font-size:var(--fs-title); font-weight:600; line-height:1.5; letter-spacing:0;}
+html.viz-heat .vh-modes {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:180px; flex:none; gap:4px; padding:3px; border:1px solid var(--line-2); border-radius:var(--radius-sm); background:var(--track);}
+html.viz-heat .vh-modes button {
+  font:inherit; font-weight:500; font-size:max(12px,var(--fs-label)); letter-spacing:0;
+  padding:6px 12px; border:1px solid transparent; border-radius:8px;
+  background:transparent; color:var(--ink-2); cursor:pointer; min-height:32px;
+}
+html.viz-heat .vh-modes button[aria-pressed="true"] {background:var(--card); color:var(--ink); border-color:var(--line-2);}
+html.viz-heat .vh-modes button:disabled {cursor:default;}
+html.viz-heat .vh-caption {margin:12px 0 4px; color:var(--ink); font-weight:600; min-height:24px;}
+html.viz-heat .vh-note {margin:0 0 12px; color:var(--ink-2); min-height:20px;}
+html.viz-heat .vh-plot {height:272px; min-width:0; overflow:hidden; transform-origin:left center;}
+html.viz-heat .vh-scroll {overflow:auto; height:100%; max-width:100%; overscroll-behavior:contain; scrollbar-color:var(--muted-2) var(--track); scrollbar-width:thin;}
+html.viz-heat .vh-grid {min-width:840px; width:100%;}
+html.viz-heat .vh-row {display:grid; grid-template-columns:120px minmax(720px,1fr); height:32px; align-items:center;}
+html.viz-heat .vh-label {
+  position:sticky; left:0; z-index:2; height:32px; display:flex; align-items:center;
+  padding-inline:6px 8px; white-space:nowrap; overflow:hidden;
+  background:rgb(from var(--card) r g b); color:var(--ink-2); border-right:1px solid var(--line-2);
+  font-size:max(12px,var(--fs-label)); letter-spacing:0;
+}
+html.viz-heat .vh-axis {position:sticky; top:0; z-index:3; background:var(--track);}
+html.viz-heat .vh-axis .vh-label {font-weight:500;}
+html.viz-heat .vh-ticks {display:grid; grid-template-columns:repeat(24,minmax(0,1fr)); color:var(--ink-2); font-variant-numeric:tabular-nums;}
+html.viz-heat .vh-ticks span {text-align:center;}
+html.viz-heat .vh-cells {width:100%; height:32px; display:block; overflow:visible;}
+html.viz-heat .vh-cells rect {fill:var(--track); cursor:help; outline:none;}
+html.viz-heat .vh-cells rect[data-level="1"] {fill:color-mix(in srgb,var(--violet) 34%,var(--track));}
+html.viz-heat .vh-cells rect[data-level="2"] {fill:color-mix(in srgb,var(--violet) 52%,var(--track));}
+html.viz-heat .vh-cells rect[data-level="3"] {fill:color-mix(in srgb,var(--violet) 68%,var(--track));}
+html.viz-heat .vh-cells rect[data-level="4"] {fill:color-mix(in srgb,var(--violet) 80%,var(--track));}
+html.viz-heat .vh-cells rect[data-level="5"] {fill:color-mix(in srgb,var(--violet) 100%,var(--track));}
+html.viz-heat .vh-cells rect[data-hottest="true"] {fill:color-mix(in srgb,var(--violet) 100%,var(--track));
+  stroke:var(--violet-d); stroke-width:1.5;}
+html.viz-heat .vh-cells rect:focus-visible {stroke:var(--ink); stroke-width:2; stroke-dasharray:3 2;}
+html.viz-heat .vh-tip {
+  position:fixed; z-index:10000; pointer-events:none; max-width:min(320px,calc(100vw - 16px));
+  padding:10px 12px; background:rgb(from var(--card) r g b); color:var(--ink);
+  border:1px solid var(--line-2); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg);
+  font-size:max(12px,var(--fs-label)); line-height:1.6; letter-spacing:0;
+}
+html.viz-heat .vh-tip[hidden] {display:none;}
+html.viz-heat .vh-help {margin:12px 0 0; color:var(--ink-2); font-size:max(12px,var(--fs-label)); letter-spacing:0;}
+html.viz-heat .vh-enter {animation:vh-wipe 320ms cubic-bezier(.16,1,.3,1) both;}
+@keyframes vh-wipe {from {opacity:0; transform:scaleX(.975);} to {opacity:1; transform:scaleX(1);}}
+@media (max-width:600px) {
+  html.viz-heat .vh-card {padding:14px 12px;}
+  html.viz-heat .vh-head {gap:10px;}
+  html.viz-heat .vh-modes button {min-height:40px;}
+  html.viz-heat .vh-caption {min-height:48px;}
+  html.viz-heat .vh-note {min-height:60px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  html.viz-heat .vh-enter {animation:none;}
+}
+
+/* The card head already names this chart; keep the module title for screen
+   readers only so the card does not carry two headings. */
+#vizHeat > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; }

@@ -1,0 +1,21 @@
+/* All layout belongs to the additive layer; the renderer's marks are untouched. */
+html.viz-a11y .viz-chart-host{position:relative}
+html.viz-a11y .viz-disclosure{position:relative;height:0;margin:0;border:0;min-width:0;color:var(--ink);font-size:12px;letter-spacing:normal;line-height:1.6}
+html.viz-a11y .viz-disclosure>summary{position:absolute;right:0;bottom:-13px;z-index:2;cursor:pointer;color:var(--ink-2);font-size:12px;letter-spacing:normal;line-height:20px;max-width:100%;background:var(--card);border-radius:4px;padding:0 3px}
+html.viz-a11y .viz-disclosure[open]{height:auto;padding-top:8px}
+html.viz-a11y .viz-disclosure[open]>summary{position:static;width:fit-content;margin-left:auto;margin-bottom:6px}
+html.viz-a11y .viz-table-scroll{overflow:auto;max-height:280px;overscroll-behavior:contain;border-radius:6px}
+html.viz-a11y .viz-table{display:table;width:100%;border-collapse:collapse;font-size:12px;letter-spacing:normal;color:var(--ink);background:var(--card)}
+html.viz-a11y .viz-table caption{display:table-caption;text-align:left;padding:6px;font-size:12px;letter-spacing:normal;color:var(--ink-2)}
+html.viz-a11y .viz-table thead{display:table-header-group}
+html.viz-a11y .viz-table tbody{display:table-row-group}
+html.viz-a11y .viz-table tfoot{display:table-footer-group;font-weight:600}
+html.viz-a11y .viz-table tr{display:table-row;width:auto;border:0;border-radius:0;margin:0;padding:0;box-shadow:none;background:transparent}
+html.viz-a11y .viz-table th,html.viz-a11y .viz-table td{display:table-cell;width:auto;padding:5px 8px!important;border:0;border-bottom:1px solid var(--line);font-size:12px;letter-spacing:normal;line-height:1.6;text-align:right;background:transparent;color:var(--ink)}
+html.viz-a11y .viz-table th:first-child{text-align:left}
+html.viz-a11y .viz-table td::before{display:none}
+html.viz-a11y .viz-disclosure :focus-visible{outline:2px solid var(--violet);outline-offset:-2px}
+html.viz-a11y .viz-annotations{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:1}
+html.viz-a11y .viz-annotation{position:absolute;max-width:calc(100% - 4px);box-sizing:border-box;padding:1px 5px;border:1px solid var(--line-2);border-radius:5px;background:var(--card);color:var(--ink);font-size:12px;letter-spacing:normal;line-height:20px;white-space:nowrap;pointer-events:none}
+html.viz-a11y .viz-canvas-legend{position:absolute;left:0;right:0;bottom:0;max-height:40%;overflow:auto;margin:0;padding:4px 8px;list-style:none;background:var(--card);color:var(--ink);font-size:12px;letter-spacing:normal;line-height:1.6}
+@media(prefers-reduced-motion:reduce){html.viz-a11y .viz-disclosure,html.viz-a11y .viz-disclosure *,html.viz-a11y .viz-annotations,html.viz-a11y .viz-annotations *{animation:none!important;transition:none!important}}
