@@ -24,18 +24,23 @@ if [ ! -x "$CHROME" ]; then
 fi
 
 STARTED=""
+PIDFILE="/tmp/harken-verify.pid"
 if ! curl -sf -o /dev/null "http://127.0.0.1:$PORT/json/version"; then
   echo "verify: starting an isolated Chrome on :$PORT"
   "$CHROME" --headless=new --remote-debugging-port="$PORT" \
     --user-data-dir="$PROFILE" --no-first-run --no-default-browser-check \
     --disable-gpu --hide-scrollbars about:blank >/tmp/harken-verify-chrome.log 2>&1 &
   STARTED=$!
+  echo "$STARTED" > "$PIDFILE"
   for _ in $(seq 1 60); do
     curl -sf -o /dev/null "http://127.0.0.1:$PORT/json/version" && break
     sleep 0.25
   done
 else
   echo "verify: reusing the isolated Chrome already on :$PORT"
+  # A previous run may have left its instance behind. It is ours -- the profile
+  # path proves it -- so this run owns the shutdown just as if it had started it.
+  [ -f "$PIDFILE" ] && STARTED=$(cat "$PIDFILE")
 fi
 
 cleanup() {
@@ -43,6 +48,7 @@ cleanup() {
     kill "$STARTED" 2>/dev/null
     wait "$STARTED" 2>/dev/null
   fi
+  rm -f "$PIDFILE"
 }
 trap cleanup EXIT
 
