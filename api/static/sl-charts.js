@@ -57,7 +57,9 @@
     label: 'แนวโน้มการพูดถึง',
     render: function (d, opts) {
       if (!d || !d.labels || !d.labels.length) return empty('ยังไม่มีโพสต์ในช่วงนี้');
-      var W = 900, H = 260, X0 = 44, XR = W - 16, Y0 = 24, Y1 = H - 36;
+      // draw at the container width so 1 SVG unit = 1 CSS px; otherwise a 900-unit
+      // viewBox scales the axis text down to ~5px on a phone and kills its contrast
+      var W = Math.max(320, (opts && opts.width) || 900), H = 260, X0 = 44, XR = W - 16, Y0 = 24, Y1 = H - 36;
       var cur = d.cur || [], prev = d.prev || [], iso = d.iso || [];
       var rawMax = Math.max(1, Math.max.apply(null, cur.concat(prev)));
       var stepN = rawMax <= 6 ? rawMax : 4;
@@ -75,13 +77,13 @@
         val = Math.round(max * (1 - i / stepN));
         g += '<line x1="' + X0 + '" y1="' + gy.toFixed(1) + '" x2="' + XR + '" y2="' + gy.toFixed(1) +
           '" stroke="' + C.line + '" stroke-width="1"/>' +
-          '<text x="' + (X0 - 9) + '" y="' + (gy + 4).toFixed(1) + '" text-anchor="end" font-size="10.5" fill="' +
-          C.muted2 + '">' + num(val) + '</text>';
+          '<text x="' + (X0 - 9) + '" y="' + (gy + 4).toFixed(1) + '" text-anchor="end" font-size="12" fill="' +
+          '#33415C' + '">' + num(val) + '</text>';
       }
       var every = n > 12 ? Math.ceil(n / 8) : 1;
       var xl = d.labels.map(function (l, k) {
         return k % every ? '' : '<text x="' + xx(k).toFixed(1) + '" y="' + (Y1 + 19) + '" text-anchor="middle" ' +
-          'font-size="10.5" fill="' + C.muted2 + '">' + esc(l) + '</text>';
+          'font-size="12" fill="#33415C">' + esc(l) + '</text>';
       }).join('');
       var cols = '';
       var pts = cur.map(function (v, k) {
@@ -123,8 +125,8 @@
       var S = 220, R = 86, r = 55, cx = S / 2, cy = S / 2;
       var centre = '<text x="' + cx + '" y="' + (cy - 2) + '" text-anchor="middle" font-size="22" ' +
         'font-weight="700" fill="' + C.ink + '">' + num(total) + '</text>' +
-        '<text x="' + cx + '" y="' + (cy + 16) + '" text-anchor="middle" font-size="11" fill="' +
-        C.muted2 + '">โพสต์</text>';
+        '<text x="' + cx + '" y="' + (cy + 16) + '" text-anchor="middle" font-size="12" fill="' +
+        '#33415C' + '">โพสต์</text>';
       /* one platform = one full ring; a single 360° arc collapses to nothing */
       if (items.length === 1) {
         var only = items[0];
@@ -186,7 +188,7 @@
         out += '<line x1="' + X0 + '" y1="' + y.toFixed(1) + '" x2="' + XR + '" y2="' + y.toFixed(1) +
           '" stroke="' + C.line + '"/>' +
           '<text x="' + (X0 - 7) + '" y="' + (y + 3.5).toFixed(1) + '" text-anchor="end" ' +
-          'font-size="10" fill="' + C.muted2 + '">' + num(Math.round(max * (1 - gi / stepN))) + '</text>';
+          'font-size="12" fill="#33415C">' + num(Math.round(max * (1 - gi / stepN))) + '</text>';
       }
       rows.forEach(function (r, i) {
         var x = X0 + i * (bw + gap), y = Y1, h, tot = r.pos + r.neu + r.neg;
@@ -201,7 +203,7 @@
         });
         if (i % (rows.length > 16 ? 3 : 1) === 0) {
           out += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (Y1 + 15) + '" text-anchor="middle" ' +
-            'font-size="9.5" fill="' + C.muted2 + '">' + esc(r.label) + '</text>';
+            'font-size="12" fill="#33415C">' + esc(r.label) + '</text>';
         }
       });
       return wrap(W, H, out, 'อารมณ์รายวัน');
@@ -302,7 +304,7 @@
           tip([hours[i] + ':00', num(v) + ' โพสต์']) + '/>';
         if (i % 3 === 0) {
           out += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (Y1 + 14) + '" text-anchor="middle" ' +
-            'font-size="9.5" fill="' + C.muted2 + '">' + esc(hours[i]) + '</text>';
+            'font-size="12" fill="#33415C">' + esc(hours[i]) + '</text>';
         }
       });
       return wrap(W, H, out, 'ชั่วโมงที่คึกคัก');
