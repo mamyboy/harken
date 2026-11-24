@@ -111,6 +111,11 @@ def _comment_belongs(ctext, post_text):
     r = _thai_ratio(ctext)
     if r >= 0.2:
         return True
+    # emoji- and sticker-only replies ("🥰🥰🥰", "[อบอุ่นใจ]") carry a real reaction
+    # and no language to mismatch: the guard below is for foreign recommended
+    # threads, so anything without a single letter is not that.
+    if not _RE.search(r'[A-Za-z\u0E00-\u0E7F]', ctext):
+        return True
     if not post_text:
         return True
     # non-Thai comment is kept only when it shares a real word with the post
@@ -178,12 +183,17 @@ def _metrics(p):
             v = m.get(k)
             if v in (None, ''):
                 v = p.get(k)
+            # a post's 'comments' is the list of harvested rows, not a count:
+            # reading it as one reported "0 of 0" for every TikTok run
+            if isinstance(v, (list, tuple, dict)):
+                continue
             if v not in (None, ''):
                 return _num(v)
         return 0
 
     return (pick('likes', 'like_count', 'reactions', 'diggCount', 'favorite_count'),
-            pick('replies', 'comments', 'comment_count', 'commentCount', 'reply_count'),
+            pick('comments_declared', 'replies', 'comments', 'comment_count', 'commentCount',
+                 'reply_count'),
             pick('reposts', 'retweets', 'retweet_count'),
             pick('shares', 'share_count', 'shareCount'))
 
@@ -282,6 +292,7 @@ def ingest(project=PROJECT, verbose=False):
                 text = (p.get('text') or '').strip()
                 th = (trans.get(_text_key(text)) or {}).get('th') or text
                 likes, replies, reposts, shares = _metrics(p)
+                declared = _num(p.get('comments_declared')) or replies or 0
                 plat = _platform(path, url)
                 row = (
                     plat,
@@ -307,6 +318,7 @@ def ingest(project=PROJECT, verbose=False):
                     'news' if plat == 'news' else 'social',
                     _news_key(text) if plat == 'news' else '',
                     _summary(p, plat),
+                    declared,
                 )
                 cur = conn.execute('SELECT 1 FROM posts WHERE url = ?', (url,)).fetchone()
                 if plat == 'news' and not cur:
@@ -319,8 +331,8 @@ def ingest(project=PROJECT, verbose=False):
                     """INSERT INTO posts
                        (platform, author, text_raw, text_th, posted_at, posted_iso, likes, replies,
                         reposts, shares, is_reply, query, relevance, sentiment, run, fetched_at, updated_at,
-                        observed_at, first_seen, url, kind, dedupe_key, summary)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        observed_at, first_seen, url, kind, dedupe_key, summary, comments_declared)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                        ON CONFLICT(url) DO UPDATE SET
                          platform=excluded.platform, author=excluded.author, text_raw=excluded.text_raw,
                          text_th=CASE WHEN excluded.text_th <> '' AND excluded.text_th <> excluded.text_raw
@@ -340,6 +352,9 @@ def ingest(project=PROJECT, verbose=False):
                          first_seen=COALESCE(posts.first_seen, excluded.first_seen),
                          kind=excluded.kind,
                          dedupe_key=excluded.dedupe_key,
+                         comments_declared=CASE WHEN excluded.comments_declared > 0
+                                                THEN excluded.comments_declared
+                                                ELSE posts.comments_declared END,
                          summary=CASE WHEN excluded.kind = 'news' THEN excluded.summary
                                       ELSE COALESCE(NULLIF(excluded.summary,''), posts.summary) END""",
                     row,
@@ -350,7 +365,7 @@ def ingest(project=PROJECT, verbose=False):
                     added += 1
                 run_urls.append((url, p.get('posted_iso') or ''))
                 run_posts += 1
-                run_reported += replies or 0
+                run_reported += declared
 
                 for i, c in enumerate((p.get('comments') or [])[:MAX_COMMENTS_PER_POST]):
                     curl = c.get('url') or f'{url}#c{i}'
@@ -363,6 +378,15 @@ def ingest(project=PROJECT, verbose=False):
                     if not _comment_belongs(ctext, p.get('text') or ''):
                         continue
                     cth = (trans.get(_text_key(ctext)) or {}).get('th') or ctext
+                    # A reply's comment id differs between runs (position in the
+                    # panel), so the same reply came back as a second row and the
+                    # sample grew without new information. Identity is the post,
+                    # the author and the words.
+                    dup = conn.execute(
+                        "SELECT 1 FROM post_comments WHERE url=? AND author=? AND text_raw=? LIMIT 1",
+                        (url, _author(c), ctext)).fetchone()
+                    if dup:
+                        continue
                     conn.execute(
                         """INSERT INTO post_comments (id, url, author, text_raw, text_th, posted_iso, likes, is_author)
                            VALUES (?,?,?,?,?,?,?,?)
@@ -376,8 +400,23 @@ def ingest(project=PROJECT, verbose=False):
                     run_comments += 1
 
             _apply_judgement(conn, path, run_urls)
+            # Re-ingesting the same file inserts nothing new, so the inserted-row
+            # counter reported 0 comments for a run whose comments were all there.
+            # Count what the run actually owns.
+            stored = 0
+            if run_urls:
+                marks = ','.join('?' * len(run_urls))
+                stored = conn.execute('SELECT COUNT(*) c FROM post_comments WHERE url IN (%s)'
+                                      % marks, [u for u, _ in run_urls]).fetchone()['c']
             _update_run_status(conn, run_key, platform, path, run_posts,
-                               run_comments, run_reported, now)
+                               stored, run_reported, now)
+        # Rows written before the guard above existed: keep the first of each
+        # (post, author, words) triple so the sample stops overcounting.
+        removed = conn.execute(
+            """DELETE FROM post_comments WHERE rowid NOT IN (
+                   SELECT MIN(rowid) FROM post_comments GROUP BY url, author, text_raw)""").rowcount
+        if verbose and removed:
+            print(f'INGEST dedupe removed={removed}')
         conn.execute('INSERT INTO ingest_log (files, added, updated, at) VALUES (?,?,?,?)',
                      (files, added, updated, now))
 

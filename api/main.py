@@ -759,6 +759,34 @@ def posts(
             'facets': facets, 'terms_active': _term_list(terms), 'posts': rows}
 
 
+@app.get('/api/posts/{url:path}/comments')
+def post_comments(url: str):
+    """Every comment stored for one post, with the mix the table shows.
+
+    The search page expands a row and asks for this; the row already carries
+    comment_count/comment_sentiment, so the two must agree.
+    """
+    with db.db() as conn:
+        rows = [dict(r) for r in conn.execute(
+            'SELECT id, author, text_raw, text_th, posted_iso, likes, is_author, sentiment,'
+            ' emotion, sentiment_conf, sentiment_why, sarcasm FROM post_comments'
+            ' WHERE url = ? ORDER BY posted_iso DESC', (url,))]
+        post = conn.execute('SELECT comments_declared FROM posts WHERE url = ?', (url,)).fetchone()
+    mix = {'pos': 0, 'neu': 0, 'neg': 0}
+    for r in rows:
+        if r.get('sentiment') in mix:
+            mix[r['sentiment']] += 1
+    for r in rows:
+        conf = r.get('sentiment_conf')
+        r['sentiment_state'] = ('none' if not r.get('sentiment')
+                                else 'review' if conf is None or float(conf) < sentiment_mod.REVIEW_BELOW
+                                else 'ok')
+    return {'url': url, 'count': len(rows), 'sentiment': mix,
+            'declared': (post['comments_declared'] if post else 0) or 0,
+            'unsure': sum(1 for r in rows if r['sentiment_state'] == 'review'),
+            'comments': rows}
+
+
 @app.get('/api/runs')
 def runs():
     """One row per search run (feed file): label, platform, size and date span.
@@ -1125,6 +1153,113 @@ def rankings(days: int = Query(7, ge=1, le=180), limit: int = Query(6, ge=1, le=
             'top_commenters': commenters, 'scanned': len(rows)}
 
 
+@app.get('/api/search/{run}')
+def search_zone(run: str, days: int = Query(7, ge=1, le=180), include_noise: int = 0):
+    """Everything the keyword-zone page paints, in one call.
+
+    `/search` is served by workspace.html, which asks for this endpoint on boot;
+    without it the page showed its error banner and no numbers at all. Numbers
+    come from the same voice rule as /api/comments/insights: `comments` is the
+    raw message count for reference, `voices` is what the mix is built on.
+    """
+    if ',' in run:
+        raise HTTPException(status_code=400,
+                            detail='หนึ่งโซนต่อหนึ่งคำขอ — แยกยิงตาม run ไม่ผสมกัน')
+    import datetime as dt
+    with db.db() as conn:
+        posts = [dict(r) for r in conn.execute(
+            'SELECT url, platform, author, text_raw, text_th, posted_iso, likes, replies, '
+            'reposts, sentiment, emotion, sentiment_conf, noise, kind, run '
+            'FROM posts WHERE COALESCE(run, ?) = ? OR run LIKE ?', (run, run, '%' + run + '%'))]
+        comments = [dict(r) for r in conn.execute(
+            'SELECT c.url, c.author, c.text_raw, c.sentiment, c.posted_iso, c.likes '
+            'FROM post_comments c JOIN posts p ON p.url = c.url WHERE p.run LIKE ?',
+            ('%' + run + '%',))]
+    if not include_noise:
+        posts = [p for p in posts if not p.get('noise')]
+
+    by_day, plat, sent = {}, {}, {'pos': 0, 'neu': 0, 'neg': 0, 'none': 0}
+    eng = {'likes': 0, 'replies': 0, 'reposts': 0}
+    translated = native = 0
+    for p in posts:
+        d = (p.get('posted_iso') or '')[:10]
+        if d:
+            by_day[d] = by_day.get(d, 0) + 1
+        pf = p.get('platform') or 'other'
+        cur = plat.setdefault(pf, {'platform': pf, 'n': 0, 'pos': 0, 'neg': 0, 'neu': 0})
+        cur['n'] += 1
+        s_ = p.get('sentiment') or ''
+        if s_ in ('pos', 'neg', 'neu'):
+            cur[s_] += 1
+            sent[s_] += 1
+        else:
+            sent['none'] += 1
+        for k in eng:
+            eng[k] += p.get(k) or 0
+        if (p.get('text_th') or '').strip():
+            translated += 1
+        if (p.get('th_native') if 'th_native' in p else False):
+            native += 1
+
+    # voice-weighted comment mix (one person's burst is one opinion)
+    def _norm(a):
+        return re.sub(r'\s+', ' ', (a or '').strip()).lower()
+
+    voices = {}
+    for c in comments:
+        key = (c['url'], _norm(c['author']))
+        v = voices.setdefault(key, {'sents': {}, 'n': 0})
+        v['n'] += 1
+        s_ = c.get('sentiment') or ''
+        if s_ in ('pos', 'neg', 'neu'):
+            v['sents'][s_] = v['sents'].get(s_, 0) + 1
+    cmix = {'pos': 0, 'neu': 0, 'neg': 0, 'none': 0}
+    for v in voices.values():
+        s_ = max(v['sents'].items(), key=lambda kv: kv[1])[0] if v['sents'] else ''
+        cmix[s_ if s_ in cmix else 'none'] += 1
+
+    ins = comments_insights(days=days, run=run, flood_min=3)
+    issues = []
+    by_author = {}
+    for p in posts:
+        a = (p.get('author') or '').strip()
+        if a:
+            by_author[a] = by_author.get(a, 0) + 1
+    for t in sorted(by_author.items(), key=lambda kv: kv[1], reverse=True)[:6]:
+        issues.append({'label': '@' + t[0], 'n_posts': t[1], 'prev_posts': 0,
+                       'sentiment': {'pos': 0, 'neu': 0, 'neg': 0}})
+
+    dates = sorted(by_day)
+    return {
+        'zone': {'run': run, 'label': run.split('_', 1)[-1], 'platforms': sorted(plat),
+                 'queries': [], 'note': 'หน้านี้แสดงเฉพาะโซนนี้ · นับเสียงแบบ 1 คน/โพสต์',
+                 'first_iso': dates[0] if dates else '', 'last_iso': dates[-1] if dates else ''},
+        'stats': {'total': len(posts), 'translated': translated, 'native_th': native,
+                  'comments': len(comments), 'voices': len(voices), 'hidden_noise': 0,
+                  'by_day': [{'d': d, 'n': n} for d, n in sorted(by_day.items())],
+                  'engagement': eng,
+                  'by_platform': sorted(plat.values(), key=lambda x: x['n'], reverse=True),
+                  'sentiment': [{'s': k, 'n': v} for k, v in sent.items() if v]},
+        'trend': {'labels': dates,
+                  'cur': [by_day[d] for d in dates],
+                  'prev': [0] * len(dates)},
+        'dims': {'window': {'days': days,
+                            'since': dates[0] if dates else '',
+                            'until': dates[-1] if dates else ''},
+                 'platforms': sorted(plat)},
+        'rankings': {
+            'by_likes': [{'url': p['url'], 'author': p.get('author'), 'likes': p.get('likes') or 0,
+                          'platform': p.get('platform'), 'text': (p.get('text_th') or p.get('text_raw') or '')[:120]}
+                         for p in sorted(posts, key=lambda p: -(p.get('likes') or 0))[:5]],
+            'by_comments': sorted(
+                [{'author': a, 'posts': n} for a, n in by_author.items()],
+                key=lambda x: -x['posts'])[:5],
+        },
+        'comments': dict(ins, sentiment=[{'s': k, 'n': v} for k, v in cmix.items() if v]),
+        'issues': issues,
+    }
+
+
 @app.get('/api/comments/summary')
 def comments_summary(days: int = Query(30, ge=1, le=180), run: str = '',
                      include_noise: int = 0, refresh: int = 0):
@@ -1150,9 +1285,22 @@ def comments_summary(days: int = Query(30, ge=1, le=180), run: str = '',
 
 
 @app.get('/api/comments/insights')
-def comments_insights(days: int = Query(30, ge=1, le=180), run: str = ''):
-    """Aggregate the scraped comments: volume, sentiment mix, who talks, what about."""
+def comments_insights(days: int = Query(30, ge=1, le=180), run: str = '',
+                      flood_min: int = Query(3, ge=2, le=50)):
+    """Aggregate the scraped comments.
+
+    Two counts, both true, answering different questions:
+
+      total    every comment row -> volume, and the input to anomaly detection
+      voices   one per person per post -> what the audience actually thinks
+
+    One account posting nine near-identical lines is one voice, not nine
+    opinions; averaging it in would turn spam into "24% anger". The burst is
+    reported separately in `flood`, where it is a signal about the account.
+    """
     import datetime as dt
+    # called directly from another endpoint the default is a Query object, not 3
+    flood_min = flood_min if isinstance(flood_min, int) else 3
     rw, rp = [], []
     _run_clause(rw, rp, run, prefix='p.')
     where = ['1=1'] + rw
@@ -1182,32 +1330,80 @@ def comments_insights(days: int = Query(30, ge=1, le=180), run: str = ''):
            if not _iso(r['posted_iso'])
            or not start or start <= _iso(r['posted_iso']).date() <= end_d]
 
+    def _norm(a):
+        return re.sub(r'\s+', ' ', (a or '').strip()).lower()
+
+    voices = {}
+    for r, _t in win:
+        key = (r['url'], _norm(r['author']))
+        v = voices.get(key)
+        if not v:
+            v = voices[key] = {'url': r['url'],
+                               'author': (r['author'] or '').strip() or '(ไม่ระบุ)',
+                               'platform': r['platform'] or 'other', 'n': 0, 'likes': 0,
+                               'sents': {}, 'last_iso': '', 'last_sent': '',
+                               'post_author': r['post_author'],
+                               'text': (r['post_text'] or '')[:120]}
+        v['n'] += 1
+        v['likes'] += r['likes'] or 0
+        s_ = r['sentiment'] or ''
+        if s_ in ('pos', 'neg', 'neu'):
+            v['sents'][s_] = v['sents'].get(s_, 0) + 1
+        iso = r['posted_iso'] or ''
+        if iso >= v['last_iso']:
+            v['last_iso'] = iso
+            v['last_sent'] = s_
+
+    def _voice_sent(v):
+        """The feeling this person left on that post: most frequent, newest breaks ties."""
+        if not v['sents']:
+            return ''
+        return max(v['sents'].items(), key=lambda kv: (kv[1], kv[0] == v['last_sent']))[0]
+
     mix = {'pos': 0, 'neu': 0, 'neg': 0, 'none': 0}
     plat, talkers, posts_map = {}, {}, {}
-    for r, t in win:
-        s_ = r['sentiment'] or ''
+    for v in voices.values():
+        s_ = _voice_sent(v)
         mix[s_ if s_ in mix else 'none'] += 1
-        p = r['platform'] or 'other'
-        cur = plat.setdefault(p, {'platform': p, 'n': 0, 'pos': 0, 'neg': 0, 'neu': 0})
+        p = v['platform']
+        cur = plat.setdefault(p, {'platform': p, 'n': 0, 'comments': 0,
+                                  'pos': 0, 'neg': 0, 'neu': 0})
         cur['n'] += 1
+        cur['comments'] += v['n']
         if s_ in ('pos', 'neg', 'neu'):
             cur[s_] += 1
-        a = (r['author'] or '').strip() or '(ไม่ระบุ)'
-        talker = talkers.setdefault(a, {'author': a, 'n': 0, 'likes': 0})
-        talker['n'] += 1
-        talker['likes'] += r['likes'] or 0
-        pm = posts_map.setdefault(r['url'], {'url': r['url'], 'platform': p,
-                                             'post_author': r['post_author'],
-                                             'text': (r['post_text'] or '')[:120],
-                                             'n': 0, 'pos': 0, 'neg': 0, 'neu': 0})
+        a = v['author']
+        tk = talkers.setdefault(a, {'author': a, 'n': 0, 'comments': 0, 'likes': 0})
+        tk['n'] += 1
+        tk['comments'] += v['n']
+        tk['likes'] += v['likes']
+        pm = posts_map.setdefault(v['url'], {'url': v['url'], 'platform': p,
+                                             'post_author': v['post_author'],
+                                             'text': v['text'],
+                                             'n': 0, 'comments': 0,
+                                             'pos': 0, 'neg': 0, 'neu': 0})
         pm['n'] += 1
+        pm['comments'] += v['n']
         if s_ in ('pos', 'neg', 'neu'):
             pm[s_] += 1
 
-    texts = [r['text_th'] or r['text_raw'] or '' for r, _ in win]
-    per_post = sorted(posts_map.values(), key=lambda x: x['n'], reverse=True)
+    # The raw count survives here: a burst from one account is worth seeing
+    # rather than smoothing away, it just must not be read as public opinion.
+    flood = sorted([{'url': v['url'], 'author': v['author'], 'n': v['n'],
+                     'platform': v['platform'], 'post_author': v['post_author'],
+                     'text': v['text']}
+                    for v in voices.values() if v['n'] >= flood_min],
+                   key=lambda x: x['n'], reverse=True)[:10]
+
+    texts = [v['text'] for v in voices.values()]
+    per_post = sorted(posts_map.values(), key=lambda x: (x['n'], x['comments']), reverse=True)
     return {
-        'total': len(win), 'posts': len(posts_map),
+        'total': len(win),
+        'voices': len(voices),
+        'weight': 'voice',
+        'flood_min': flood_min,
+        'flood': flood,
+        'posts': len(posts_map),
         'sentiment': [{'s': k, 'n': v} for k, v in mix.items() if v],
         'by_platform': sorted(plat.values(), key=lambda x: x['n'], reverse=True),
         'top_commenters': sorted(talkers.values(), key=lambda x: (x['n'], x['likes']),
@@ -1216,68 +1412,7 @@ def comments_insights(days: int = Query(30, ge=1, le=180), run: str = ''):
         'per_post': per_post[:20],
         'window': {'days': days,
                    'from': start.isoformat() if start else '',
-                   'to': end_d.isoformat() if end_d else ''}}
-
-
-@app.get('/api/posts/{post_id:path}/comments')
-def post_comments(post_id: str):
-    with db.db() as conn:
-        rows = [dict(r) for r in conn.execute(
-            'SELECT * FROM post_comments WHERE url = ? ORDER BY posted_iso DESC', (post_id,))]
-    mix = {'pos': 0, 'neu': 0, 'neg': 0, 'none': 0}
-    for r in rows:
-        s = r.get('sentiment') or ''
-        mix[s if s in mix else 'none'] += 1
-    return {'url': post_id, 'count': len(rows), 'sentiment': mix, 'comments': rows}
-
-
-def _zone_meta(run):
-    """Run card for one search zone, reusing /api/runs so labels stay consistent."""
-    try:
-        all_runs = runs()
-    except Exception:
-        all_runs = {'runs': []}
-    row = next((r for r in all_runs.get('runs', []) if r.get('run') == run), None)
-    if not row:
-        return {'run': run, 'label': run, 'kind': 'social', 'platforms': [],
-                'posts': 0, 'queries': [], 'status': 'missing', 'note': '',
-                'comments_stored': 0, 'comments_reported': 0,
-                'comments_coverage': None, 'first_iso': '', 'last_iso': ''}
-    return row
-
-
-@app.get('/api/search/{run:path}')
-def search_zone(run: str, days: int = Query(7, ge=1, le=90),
-                include_noise: int = 0, gran: str = 'day'):
-    """Everything one keyword zone needs, in a single request.
-
-    A zone is one search run (one feed file). The overview dashboard never mixes
-    these numbers — it closes over every run at once. This endpoint is the only
-    place a single zone's stats, trend, dimensions, comment reaction and issue
-    list are assembled together, so the workspace page can paint without a
-    fan-out of eight parallel fetches.
-    """
-    key = (run or '').strip()
-    if not key:
-        raise HTTPException(status_code=400, detail='run is required')
-    if ',' in key:
-        raise HTTPException(status_code=400, detail='a zone is exactly one run')
-
-    st = stats(run=key, include_noise=include_noise)
-    tr = trend(gran=gran, days=days, run=key, include_noise=include_noise)
-    dm = dims(days=days, run=key, include_noise=include_noise)
-    ci = comments_insights(days=90, run=key)
-    iss = issues(days=days, limit=8, run=key, include_noise=include_noise)
-    rk = rankings(days=days, limit=6, run=key, include_noise=include_noise)
-    zone = _zone_meta(key)
-    return {
-        'zone': zone,
-        'revision': _revision(),
-        'window': {'days': days, 'from': tr.get('from', ''), 'to': tr.get('to', '')},
-        'stats': st, 'trend': tr, 'dims': dm,
-        'comments': ci, 'issues': iss.get('issues', []),
-        'issues_window_days': iss.get('window_days', days),
-        'rankings': rk,
+                   'to': end_d.isoformat() if end_d else ''},
     }
 
 
@@ -1344,14 +1479,18 @@ def tools_page():
 
 @app.get('/ops')
 def ops_page():
-    """Old address for the data-operations surface."""
+    """Old address for the data-operations surface.
+
+    308 rather than 302: these are permanent renames, so browsers and crawlers
+    should stop asking and cache the new address.
+    """
     return RedirectResponse('/tools', status_code=302)
 
 
 @app.get('/vibrant')
 def vibrant():
     """Design shell now runs on real data — the prototype route redirects to it."""
-    return RedirectResponse('/', status_code=302)
+    return RedirectResponse('/', status_code=308)
 
 
 @app.get('/favicon.ico')

@@ -151,15 +151,15 @@ def build(preset, keyword, platforms=None, window=None, extra=''):
         if p == 'x':
             cmd = [PY, '-u', f'{SKILLS}/x-cdp-search/scripts/x_run.py',
                    '--intent', intent, '--name', name, '--direct', queries,
-                   '--must', must] + win + ['--target', '15']
+                   '--must', must] + win + ['--target', '15', '--comments', '15']
         elif p == 'tiktok':
             cmd = [PY, '-u', f'{SKILLS}/tiktok-cdp-search/scripts/tt_run.py',
                    '--intent', intent, '--name', name, '--direct', queries,
-                   '--must', must] + win + ['--target', '10', '--comments', '8']
+                   '--must', must] + win + ['--target', '15', '--comments', '25']
         elif p == 'threads':
             cmd = [PY, '-u', f'{SKILLS}/threads-cdp-search/scripts/th_run.py',
                    '--intent', intent, '--name', name, '--direct', queries,
-                   '--must', must] + win + ['--target', '15', '--comments', '8',
+                   '--must', must] + win + ['--target', '15', '--comments', '20',
                                             '--keep-fuzzy']
         else:
             cmd = [PY, '-u', f'{SKILLS}/facebook-cdp-search/scripts/fb_search.py',
@@ -168,7 +168,7 @@ def build(preset, keyword, platforms=None, window=None, extra=''):
                 cmd += ['--page', extra.strip(), '--days', '0']
             else:
                 cmd += ['--strict'] + win
-            cmd += ['--target', '15', '--comments', '10', '--name', name]
+            cmd += ['--target', '15', '--comments', '25', '--name', name]
         log = os.path.join(LOGDIR, '%s-%s-%s.log' % (name, p, time.strftime('%H%M%S')))
         out.append((p, cmd, log))
     return out

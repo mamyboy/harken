@@ -180,22 +180,41 @@
     var cs = p.comment_sentiment || { pos: 0, neu: 0, neg: 0 };
     var dir = SENT[p.comment_direction] || SENT.none;
     var ccount = p.comment_count || 0;
+    // the platform's own count: "12 คอมเมนต์" and "12 จาก 48" are different claims
+    var decl = p.comments_declared || 0;
     var emos = ['pos', 'neu', 'neg'].filter(function (k) { return cs[k] > 0; })
       .map(function (k) {
         return '<span class="emo ' + k + '">' + SENT[k].e + ' ' + num(cs[k]) + '</span>';
       }).join('');
 
-    var thread = ccount ? '<div class="thread"><div class="th"><b>' + num(ccount) + ' คอมเมนต์</b>' +
+    var gap = decl > ccount
+      ? '<span class="emo review" title="แพลตฟอร์มนับไว้ ' + num(decl) +
+        ' — อ่านได้ ' + num(ccount) + '">อ่านได้ ' + num(ccount) + '/' + num(decl) + '</span>'
+      : '';
+    var thread = ccount ? '<div class="thread"><div class="th"><b>' + num(ccount) + ' คอมเมนต์</b>' + gap +
       '<span class="emo ' + dir.c + '">' + dir.e + ' ทิศทาง ' + dir.n + '</span></div>' +
       (p.comments || []).map(function (c) {
         var s2 = SENT[c.sentiment] || SENT.none;
+        // A confident label is a finding; a shaky one is a question. Say which.
+        var EM = { anger: 'โกรธ', fear: 'กลัว', disappointment: 'ผิดหวัง',
+                   mockery: 'ล้อเลียน', praise: 'ชื่นชม', neutral: '' };
+        var em = EM[c.emotion] || '';
+        var sure = c.sentiment_state !== 'review';
+        var why = c.sentiment_why ? ' title="' + esc(c.sentiment_why) + '"' : '';
+        // emotion is the specific feeling; the pole stays first so the row still
+        // sorts and scans the same way as before.
+        var detail = (em ? ' · ' + em : '') + (c.sarcasm ? ' · ประชด' : '');
+        var badge = sure ? '<span class="emo ' + s2.c + '"' + why + '>' + s2.e + ' ' + s2.n + detail + '</span>'
+                         : '<span class="emo review" title="' + esc(c.sentiment_why || 'โมเดลไม่มั่นใจ') + '">? ควรตรวจ</span>';
         return '<div class="c"><div class="cm"><b>@' + esc(c.author) + '</b>' +
-          '<span class="emo ' + s2.c + '">' + s2.e + ' ' + s2.n + '</span>' +
+          badge +
           '<span>' + esc(clock(c.posted_iso)) + '</span>' +
           '<span class="cl">❤ ' + num(c.likes) + '</span></div>' +
           '<div class="ct">' + highlight(c.text_th || c.text_raw || '') + '</div></div>';
       }).join('') + '</div>'
-      : (p.replies ? '<div class="chint">💬 ' + num(p.replies) +
+      : (decl ? '<div class="chint">💬 แพลตฟอร์มนับ ' + num(decl) +
+          ' คอมเมนต์ — ยังไม่ได้เก็บข้อความ (0/' + num(decl) + ')</div>'
+        : p.replies ? '<div class="chint">💬 ' + num(p.replies) +
         ' การตอบกลับตามตัวเลขของโพสต์ — ฟีดนี้ไม่ได้เก็บข้อความ</div>' : '');
 
     return '<tr class="row" data-url="' + esc(p.url) + '" aria-expanded="' + open + '" tabindex="0">' +
@@ -286,13 +305,19 @@
 
   /* ── section 3 · comments & reactions ─────────────────── */
   function paintComments(ci) {
+    /* The headline is voices, not messages: one account repeating itself is one
+       opinion. The message count stays visible underneath, and a burst is called
+       out rather than averaged into the mix. */
     var total = ci.total || 0;
-    $('#cmTotal').textContent = num(total);
-    $('#cmTotalF').textContent = ci.window && ci.window.days
-      ? ('ในช่วง ' + num(ci.window.days) + ' วันล่าสุด') : 'ทุกช่วงที่เก็บได้';
+    var voices = (ci.voices == null ? total : ci.voices);
+    var flood = ci.flood || [];
+    $('#cmTotal').textContent = num(voices);
+    $('#cmTotalF').textContent = total === voices
+      ? (ci.window && ci.window.days ? ('ในช่วง ' + num(ci.window.days) + ' วันล่าสุด') : 'ทุกช่วงที่เก็บได้')
+      : ('จาก ' + num(total) + ' ข้อความ · นับ 1 เสียง/คน/โพสต์');
     $('#cmPosts').textContent = num(ci.posts || 0);
     $('#cmPostsF').textContent = total ? ('เฉลี่ย ' +
-      (Math.round(total / Math.max(1, ci.posts || 1) * 10) / 10) + ' ต่อโพสต์') : '—';
+      (Math.round(voices / Math.max(1, ci.posts || 1) * 10) / 10) + ' เสียงต่อโพสต์') : '—';
 
     var rows = (ci.sentiment || []).slice().sort(function (a, b) { return b.n - a.n; });
     var people = ci.top_commenters || [];
@@ -308,19 +333,41 @@
           '<span class="track"><span class="fill" style="width:' + pct + '%"></span></span>' +
           '<span class="val num">' + num(n) + ' · ' + pct + '%</span></div>';
       }).join('') || '<div class="chint">ยังไม่มีคอมเมนต์ที่จำแนกได้</div>';
-    $('#cmMixHint').textContent = total ? (num(total) + ' ข้อความ') : '—';
+    $('#cmMixHint').textContent = total
+      ? (num(voices) + ' เสียง' + (total !== voices ? ' จาก ' + num(total) + ' ข้อความ' : ''))
+      : '—';
 
     paint('#cmPeople', 'slBars', people.slice(0, 8).map(function (p) {
-      return { key: p.author, label: '@' + (p.author || '—'), value: p.n, badge: '·',
+      return { key: p.author, label: '@' + (p.author || '—'), value: p.n,
+        badge: (p.comments && p.comments > p.n) ? ('· ' + num(p.comments) + ' ข้อความ') : '·',
         color: 'var(--cyan)' };
-    }), { act: 'author', unit: ' ข้อความ', empty: 'ยังไม่มีคอมเมนต์' });
+    }), { act: 'author', unit: ' โพสต์', empty: 'ยังไม่มีคอมเมนต์' });
 
+    var flooded = {};
+    flood.forEach(function (f) { flooded[f.url] = f; });
+    var warn = $('#cmFlood');
+    if (!warn && $('#cmPerPost') && $('#cmPerPost').parentNode) {
+      warn = document.createElement('div');
+      warn.id = 'cmFlood';
+      warn.className = 'chint';
+      $('#cmPerPost').parentNode.insertBefore(warn, $('#cmPerPost'));
+    }
+    if (warn) {
+      warn.innerHTML = flood.length
+        ? ('\u26a0\ufe0f ' + num(flood.length) + ' บัญชีโพสต์ซ้ำผิดปกติ · สูงสุด ' +
+           num(flood[0].n) + ' ข้อความในโพสต์เดียว (โดย ' + esc(flood[0].author) + ')')
+        : '';
+    }
     var per = (ci.per_post || []).slice(0, 8);
     var maxN = Math.max(1, Math.max.apply(null, per.map(function (x) { return x.n; }).concat([1])));
     $('#cmPerPost').innerHTML = per.length ? per.map(function (x, i) {
-      return '<button type="button" class="rankrow" data-url="' + esc(x.url) + '">' +
+      var f = flooded[x.url];
+      return '<button type="button" class="rankrow" data-url="' + esc(x.url) + '"' +
+        ' title="' + esc(num(x.n) + ' เสียง · ' + num(x.comments || x.n) + ' ข้อความ' +
+                          (f ? ' · ' + f.author + ' เขียน ' + num(f.n) + ' ครั้ง' : '')) + '">' +
         '<span class="no num">' + String(i + 1).padStart(2, '0') + '</span>' +
-        '<span class="rt">' + esc('@' + (x.post_author || '—') + ' · ' + (x.text || '').slice(0, 60)) + '</span>' +
+        '<span class="rt">' + esc('@' + (x.post_author || '—') + ' · ' + (x.text || '').slice(0, 60)) +
+          (f ? ' <b class="flood">\u26a0 ' + num(f.n) + '</b>' : '') + '</span>' +
         '<span class="rv">' + num(x.n) + '</span>' +
         '<span class="bar"><i style="width:' + Math.round(x.n / maxN * 100) + '%"></i></span></button>';
     }).join('') : '<div class="empty">ยังไม่มีโพสต์ที่มีคอมเมนต์</div>';
