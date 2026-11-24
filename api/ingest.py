@@ -388,13 +388,17 @@ def ingest(project=PROJECT, verbose=False):
                     if dup:
                         continue
                     conn.execute(
-                        """INSERT INTO post_comments (id, url, author, text_raw, text_th, posted_iso, likes, is_author)
-                           VALUES (?,?,?,?,?,?,?,?)
+                        """INSERT INTO post_comments (id, url, author, text_raw, text_th, posted_iso, likes,
+                                                       is_author, is_reply, parent_id)
+                           VALUES (?,?,?,?,?,?,?,?,?,?)
                            ON CONFLICT(id) DO UPDATE SET text_raw=excluded.text_raw, text_th=excluded.text_th,
-                             likes=excluded.likes""",
+                             likes=excluded.likes, is_reply=excluded.is_reply,
+                             parent_id=excluded.parent_id""",
                         (curl, url, _author(c), ctext, cth, c.get('posted_iso') or '',
                          _num((c.get('metrics') or {}).get('likes', c.get('likes'))),
-                         1 if c.get('is_author') else 0),
+                         1 if c.get('is_author') else 0,
+                         1 if c.get('is_reply') else 0,
+                         str(c.get('parent') or '')),
                     )
                     comments += 1
                     run_comments += 1

@@ -151,7 +151,12 @@ def init():
                              ('emotion', 'TEXT'),
                              ('polarity', 'INTEGER'),
                              ('sarcasm', 'INTEGER DEFAULT 0'),
-                             ('aspects', 'TEXT')):
+                             ('aspects', 'TEXT'),
+                             # a reply answers a specific comment: reading replies
+                             # without knowing which comment they answer loses the
+                             # disagreement that made them worth reading
+                             ('is_reply', 'INTEGER DEFAULT 0'),
+                             ('parent_id', "TEXT DEFAULT ''")):
                 if col not in cols:
                     conn.execute('ALTER TABLE %s ADD COLUMN %s %s' % (table, col, ddl))
         conn.execute('CREATE INDEX IF NOT EXISTS idx_comments_url_sent ON post_comments(url, sentiment)')
