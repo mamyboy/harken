@@ -47,3 +47,10 @@ prototypes/
 site/
 backups/
 tmp/
+
+# Scraped run artifacts: local evidence, not source
+*.jsonl
+*.jsonl.meta.json
+*.jsonl.keep.json
+*_archive/
+reports/

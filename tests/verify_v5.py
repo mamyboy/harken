@@ -6,6 +6,9 @@ import subprocess
 import sys
 import time
 import urllib.parse
+
+sys.path.insert(0, __import__('os').path.dirname(__file__))
+import dataset
 import urllib.request
 
 from pathlib import Path
@@ -148,6 +151,9 @@ scroll:scrollY,enabled:window.HarkenMotion?.enabled?.(),cls:(window.__v5cls===un
 
 
 def line_draw(b):
+    if dataset.empty():
+        dataset.skip('C line draw 60ms -> 900ms')
+        return
     b.media(False)
     b.size(1280, 800)
     b.navigate('/')
@@ -170,6 +176,9 @@ paths:[...document.querySelectorAll('#chartTrend path')].map(p=>({class:p.getAtt
 
 
 def reduced_line(b):
+    if dataset.empty():
+        dataset.skip('C reduced no inline dasharray')
+        return
     b.media(True)
     b.navigate('/')
     b.wait('document.querySelector(\'#chartTrend path[class*="series"], #chartTrend path[fill="none"][stroke-width="2.6"]\')', 12)

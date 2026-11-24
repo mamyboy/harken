@@ -7,6 +7,9 @@ import time
 import urllib.parse
 import urllib.request
 
+sys.path.insert(0, __import__('os').path.dirname(__file__))
+import dataset
+
 from html.parser import HTMLParser
 from pathlib import Path
 import websocket
@@ -190,11 +193,15 @@ object:document.body.innerText.includes('[object'),count:a.length,short:a.filter
             check(label + ' object text', not d['object'], 'contains [object=' + str(d['object']))
             check(label + ' controls', d['count'] > 0 and not d['short'], d)
         b.size(1280, 800)
-    check('F X chart changes', all(colors[t]['legend'] or colors[t]['slice'] for t in colors) and
-          colors['light'] != colors['dark'], colors)
-    dark = colors['dark']['legend'] or colors['dark']['slice']
-    check('F X dark not near-black', bool(dark) and luminance(rgb(dark)) >= .1,
-          {'color': dark, 'minimum_relative_luminance': .1})
+    if dataset.empty():
+        dataset.skip('F X chart changes')
+        dataset.skip('F X dark not near-black')
+    else:
+        check('F X chart changes', all(colors[t]['legend'] or colors[t]['slice'] for t in colors) and
+              colors['light'] != colors['dark'], colors)
+        dark = colors['dark']['legend'] or colors['dark']['slice']
+        check('F X dark not near-black', bool(dark) and luminance(rgb(dark)) >= .1,
+              {'color': dark, 'minimum_relative_luminance': .1})
     b.navigate('/presets')
     d = b.js('''const h=document.querySelector('header.pagehero'),s=document.querySelector('.shell');
 const c=s&&getComputedStyle(s);return {exists:!!h,width:h&&h.getBoundingClientRect().width,

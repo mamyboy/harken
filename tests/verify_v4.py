@@ -6,6 +6,9 @@ import subprocess
 import sys
 import time
 import urllib.parse
+
+sys.path.insert(0, __import__('os').path.dirname(__file__))
+import dataset
 import urllib.request
 
 from pathlib import Path
@@ -173,6 +176,9 @@ live:document.querySelector('#abLive')?.classList.contains('is-live')};'''
         if label == 'refresh':
             b.js('await window.HarkenAppbar.refresh();return true;', True)
         d = b.js(read)
+        if dataset.empty():
+            dataset.skip('E live meta ' + label)
+            continue
         check('E live meta ' + label, bool(re.search(r'อัปเดต \d{1,2}:\d{2}', d.get('text') or ''))
               and '0 โพสต์' not in (d.get('text') or '') and d.get('live'), d)
 

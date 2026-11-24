@@ -23,6 +23,23 @@ if [ ! -x "$CHROME" ]; then
   exit 2
 fi
 
+# The operator's Chrome on :9222 is logged into Facebook, X, TikTok and Threads.
+# Verification must never inherit any of that, so before a single tab opens:
+# no suite may name a host other than this machine.
+python3 - <<'PY' || exit 3
+import glob, re, sys
+bad = []
+for path in glob.glob('tests/verify_*.py'):
+    for n, line in enumerate(open(path, encoding='utf-8'), 1):
+        for host in re.findall(r'https?://([A-Za-z0-9.\-]+)', line):
+            if host not in ('localhost', '127.0.0.1'):
+                bad.append(f'{path}:{n} -> {host}')
+if bad:
+    print('verify: a suite points at a non-local host — this would use real sessions:', *bad, sep='\n  ', file=sys.stderr)
+    sys.exit(1)
+print('pre-flight: suites are localhost-only')
+PY
+
 STARTED=""
 PIDFILE="/tmp/harken-verify.pid"
 if ! curl -sf -o /dev/null "http://127.0.0.1:$PORT/json/version"; then
@@ -52,7 +69,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-suites=(verify_type verify_v3 verify_v4 verify_v5 verify_ui verify_v6_states verify_v7_motion)
+suites=(verify_type verify_v3 verify_v4 verify_v5 verify_ui verify_v6_states verify_v7_motion verify_routes)
 total_pass=0; total_fail=0; failed=()
 for s in "${suites[@]}"; do
   out=$(/usr/bin/python3 "tests/$s.py" 2>&1)
