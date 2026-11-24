@@ -129,11 +129,30 @@ def init():
                          ('noise_state', "TEXT DEFAULT 'pending'"),
                          ('kind', "TEXT DEFAULT 'social'"),
                          ('dedupe_key', "TEXT DEFAULT ''"),
-                         ('summary', "TEXT DEFAULT ''")):
+                         ('summary', "TEXT DEFAULT ''"),
+                         # how many comments the platform says exist: without it
+                         # "28 comments" and "28 of 61" look the same on screen
+                         ('comments_declared', 'INTEGER DEFAULT 0')):
             if col not in cols:
                 conn.execute('ALTER TABLE posts ADD COLUMN %s %s' % (col, ddl))
         conn.execute('CREATE INDEX IF NOT EXISTS idx_posts_review ON posts(review_state)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_posts_kind ON posts(kind)')
         conn.execute("CREATE INDEX IF NOT EXISTS idx_posts_dedupe ON posts(kind, dedupe_key)")
+        # A label with no stated confidence cannot be told apart from a guess:
+        # store how sure the model was and why, so the UI can flag the weak ones
+        # instead of printing them as fact.
+        for table in ('posts', 'post_comments'):
+            cols = {r['name'] for r in conn.execute('PRAGMA table_info(%s)' % table)}
+            for col, ddl in (('sentiment_conf', 'REAL'),
+                             ('sentiment_model', 'TEXT'),
+                             ('sentiment_why', 'TEXT'),
+                             # three poles cannot hold what people actually
+                             # express: 'โกรธ' and 'ผิดหวัง' both collapse to neg
+                             ('emotion', 'TEXT'),
+                             ('polarity', 'INTEGER'),
+                             ('sarcasm', 'INTEGER DEFAULT 0'),
+                             ('aspects', 'TEXT')):
+                if col not in cols:
+                    conn.execute('ALTER TABLE %s ADD COLUMN %s %s' % (table, col, ddl))
         conn.execute('CREATE INDEX IF NOT EXISTS idx_comments_url_sent ON post_comments(url, sentiment)')
     return path()

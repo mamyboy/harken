@@ -1,0 +1,29 @@
+{
+ "name": "harken-th-sarcasm",
+ "version": 1,
+ "license": "CC0-1.0",
+ "description": "Real comments harvested during the Jensen Huang run, hand-labelled. Exists because sentiment_v1.json is 60 easy English praise/complaint sentences and scores near 1.0, which tells us nothing about the sarcastic Thai replies that actually reach the dashboard. Every line here was read and judged by a human; sarcasm is labelled as the intent, not the words.",
+ "notes": "label = pos/neu/neg poles used by the charts. emotion = the specific feeling. sarcasm = 1 when the literal words mean the opposite of the intent. ambiguity is kept on purpose: an item a human cannot call confidently is not a fair test.",
+ "examples": [
+  {"id": "th-01", "label": "neg", "emotion": "mockery", "sarcasm": 1, "aspects": ["stock"], "text": "หุ้นที่ช้อนไว้ กูรวยแน่นอน"},
+  {"id": "th-02", "label": "neg", "emotion": "mockery", "sarcasm": 1, "aspects": ["person"], "text": "กราบพ่อที่กลับมา"},
+  {"id": "th-03", "label": "neg", "emotion": "mockery", "sarcasm": 0, "aspects": ["stock"], "text": "Bipolar ป่าววะตลาดหุ้น เดี๋ยวแดง เดี๋ยวเขียว"},
+  {"id": "th-04", "label": "neg", "emotion": "mockery", "sarcasm": 1, "aspects": ["stock"], "text": "สาธุ ขอให้ลงดอยๆ"},
+  {"id": "th-05", "label": "pos", "emotion": "praise", "sarcasm": 0, "aspects": ["stock"], "text": "ใครที่ซ้อนตอนตลาดแดงมีเฮ"},
+  {"id": "th-06", "label": "neg", "emotion": "fear", "sarcasm": 0, "aspects": ["politics"], "text": "เงินมาจากไหน"},
+  {"id": "th-07", "label": "neg", "emotion": "anger", "sarcasm": 0, "aspects": ["stock"], "text": "เพื่อคัดคนออกจากตลาดจริงๆ"},
+  {"id": "th-08", "label": "neu", "emotion": "neutral", "sarcasm": 0, "aspects": ["stock"], "text": "คนเดียว เขียวทุกบริษัท"},
+  {"id": "th-09", "label": "neg", "emotion": "disappointment", "sarcasm": 0, "aspects": ["stock"], "text": "ลบ 50% + 30 - คือเก่า"},
+  {"id": "th-10", "label": "pos", "emotion": "praise", "sarcasm": 0, "aspects": ["person"], "text": "พี่ใหญ่กลับมาแล้ว"},
+  {"id": "th-11", "label": "neu", "emotion": "mockery", "sarcasm": 1, "aspects": ["person"], "text": "แฟนตัวยง ตามนั้น"},
+  {"id": "th-12", "label": "neg", "emotion": "mockery", "sarcasm": 1, "aspects": ["person"], "text": "ลาออกไปเล่น GTA เล่นจบกลับมาทำงานต่อละ"},
+  {"id": "th-13", "label": "neg", "emotion": "anger", "sarcasm": 1, "aspects": ["politics"], "text": "Well, a fake photo to go along with Trump's fake assassination attempt."},
+  {"id": "th-14", "label": "neg", "emotion": "mockery", "sarcasm": 1, "aspects": ["person"], "text": "The last time a CEO stepped down and was brought back was Ken Lay. Remember ENRON?"},
+  {"id": "th-15", "label": "neg", "emotion": "disappointment", "sarcasm": 0, "aspects": ["politics"], "text": "And just like that, bad behaviour gets rewarded now."},
+  {"id": "th-16", "label": "neg", "emotion": "anger", "sarcasm": 0, "aspects": ["politics"], "text": "Trump's a traitor to this country"},
+  {"id": "th-17", "label": "neu", "emotion": "mockery", "sarcasm": 0, "aspects": ["person"], "text": "bro just wanted that break to play GTA"},
+  {"id": "th-18", "label": "neu", "emotion": "neutral", "sarcasm": 0, "aspects": ["person"], "text": "Coming back after 33 years, Jensen Huang"},
+  {"id": "th-19", "label": "pos", "emotion": "praise", "sarcasm": 0, "aspects": ["politics"], "text": "Mr. President, thank you for keeping your word. We must protect and support our brilliant minds."},
+  {"id": "th-20", "label": "neg", "emotion": "fear", "sarcasm": 0, "aspects": ["stock", "politics"], "text": "ไม่มีแก จะแอบขายใต้ดินกับจีนทางไหน? เงินทั้งน้านนน"}
+ ]
+}
